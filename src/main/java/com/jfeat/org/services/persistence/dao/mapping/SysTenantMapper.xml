@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jfeat.org.services.persistence.dao.SysTenantMapper">
+
+	<!-- 通用查询映射结果 -->
+	<resultMap id="BaseResultMap" type="com.jfeat.org.services.persistence.model.SysTenant">
+		<id column="id" property="id" />
+		<result column="name" property="name" />
+		<result column="org_id" property="orgId" />
+		<result column="app_id" property="appId" />
+		<result column="domain" property="domain" />
+		<result column="status" property="status" />
+		<result column="start_time" property="startTime" />
+	</resultMap>
+
+	<select id="findById" parameterType="long" resultMap="BaseResultMap">
+		SELECT * FROM t_sys_tenant WHERE id = #{id} and delete_flag = 0
+	</select>
+
+	<select id="findByOrgId" parameterType="long" resultMap="BaseResultMap">
+		SELECT * FROM t_sys_tenant WHERE org_id = #{orgId} and delete_flag = 0
+	</select>
+
+	<select id="findByDomain" resultMap="BaseResultMap">
+		SELECT * FROM t_sys_tenant WHERE domain = #{domain} and delete_flag = 0
+	</select>
+
+	<select id="page" resultType="SysTenant" parameterType="SysTenant">
+		SELECT t_sys_tenant.*
+		FROM t_sys_tenant WHERE delete_flag = 0
+		<if test="tenant.id != null and tenant.id>0 ">
+			AND t_sys_tenant.id LIKE CONCAT('%',#{tenant.id},'%')
+		</if>
+		<if test="tenant.name != null and tenant.name!= ''">
+			AND t_sys_tenant.name LIKE CONCAT('%',#{tenant.name},'%')
+		</if>
+		<if test="tenant.orgId != null and tenant.orgId>0 ">
+			AND t_sys_tenant.orgId LIKE CONCAT('%',#{tenant.orgId},'%')
+		</if>
+		<if test="tenant.domain != null and tenant.domain!= ''">
+			AND t_sys_tenant.domain LIKE CONCAT('%',#{tenant.domain},'%')
+		</if>
+		<if test="search != null and search != ''">
+			AND t_sys_tenant.name LIKE CONCAT('%',#{search},'%')
+		</if>
+	</select>
+</mapper>

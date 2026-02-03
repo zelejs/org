@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jfeat.org.services.persistence.dao.SysUserMapper">
+	<sql id="BaseQuerySql">
+		<if test="_base.orgId != 1 and _base.filterType == 2">
+			and org_id IN (SELECT c.id FROM t_sys_org f LEFT JOIN t_sys_org c ON (f.left_num &lt;=  c.left_num AND c.right_num &lt;= f.right_num and c.delete_flag = 0 and c.tenant_org_id = #{_base.tenantOrgId}) where f.id = #{_base.orgId} and f.delete_flag = 0)
+		</if>
+		<if test="_base.orgId != 1 and _base.filterType == 1">
+			and org_id IN (SELECT c.id FROM t_sys_org f LEFT JOIN t_sys_org c ON (f.left_num &lt;=  c.left_num AND c.right_num &lt;= f.right_num and c.delete_flag = 0) where f.id = #{_base.orgId} and f.delete_flag = 0)
+		</if>
+	</sql>
+	<!-- 通用查询映射结果 -->
+	<resultMap id="BaseResultMap" type="com.jfeat.org.services.persistence.model.SysUser">
+		<id column="id" property="id" />
+		<result column="org_id" property="orgId" />
+        <result column="avatar" property="avatar" />
+		<result column="account" property="account" />
+		<result column="openid" property="openid" />
+		<result column="password" property="password" />
+		<result column="salt" property="salt" />
+		<result column="name" property="name" />
+		<result column="birthday" property="birthday" />
+		<result column="sex" property="sex" />
+		<result column="email" property="email" />
+		<result column="email_validated" property="emailValidated" />
+		<result column="phone" property="phone" />
+		<result column="status" property="status" />
+		<result column="createtime" property="createtime" />
+		<result column="version" property="version" />
+		<result column="delete_flag" property="deleteFlag" />
+		<result column="require_password_reset" property="requirePasswordReset" />
+	</resultMap>
+
+	<select id="getAdminPassowrdStatus" resultType="Integer">
+		select require_password_reset from t_sys_user where account = "admin" and org_id= #{orgId} limit 0,1;
+	</select>
+
+	<update id="updatePasswordStatus">
+		update t_sys_user set require_password_reset=1 where id=#{userId} and org_id= #{orgId};
+	</update>
+
+	<select id="getTenantOrgId" resultType="Long">
+		SELECT DISTINCT t_tenant.org_id from t_tenant
+		LEFT JOIN t_sys_org p on p.id=t_tenant.org_id
+		LEFT JOIN t_sys_org c on c.left_num >= p.left_num and c.right_num &lt;= p.right_num
+		LEFT JOIN t_sys_user u on u.org_id=c.id
+		where   p.node_level>1 and u.id=#{userId};
+	</select>
+
+	<update id="deleteTreaByOrgId">
+		update t_sys_user set delete_flag=1 where id=#{userId} and org_id= #{orgId};
+	</update>
+
+	<select id="listTreeByAccount" resultMap="BaseResultMap">
+		SELECT * from t_sys_user where delete_flag = 0 and account = #{account}
+		<include refid="BaseQuerySql"/>
+	</select>
+
+	<select id="findById" parameterType="long" resultMap="BaseResultMap">
+		SELECT * FROM t_sys_user WHERE id = #{id} and delete_flag = 0
+	</select>
+
+	<select id="visibleById" parameterType="long" resultMap="BaseResultMap">
+		SELECT * FROM t_sys_user WHERE id = #{id} and delete_flag = 0
+		<include refid="BaseQuerySql"/>
+	</select>
+
+	<select id="page" resultMap="BaseResultMap">
+		SELECT * FROM t_sys_user WHERE delete_flag = 0 and user_type &lt; 102
+		<if test="selectOrgId != null">
+			AND org_id = #{selectOrgId}
+		</if>
+		<if test="roleId != null">
+			AND id in (select user_id from t_sys_user_role WHERE delete_flag = 0 and role_id = #{roleId})
+		</if>
+		<if test="name != null and name!= ''">
+			AND name LIKE CONCAT('%',#{name},'%')
+		</if>
+		<if test="account != null and account!= ''">
+			AND account LIKE CONCAT('%',#{account},'%')
+		</if>
+		<include refid="BaseQuerySql"/>
+	</select>
+
+	<!-- 直接通过租户ID查询账户 -->
+	<select id="findByTenantOrgIdAndAccount" resultMap="BaseResultMap">
+		SELECT * FROM t_sys_user WHERE delete_flag = 0 and account = #{account} and tenant_org_id = #{tenantOrgId}
+		<choose>
+          <when test="appid != null">
+              AND appid = #{appid}
+          </when>
+          <otherwise>
+              AND appid IS NULL
+          </otherwise>
+      	</choose>
+	</select>
+
+	<!-- 查询在租户内的用户账户, 用户的租户等于其所属组织的租户, 以及限定在 appid 内  -->
+	<select id="findByAccountInTenant" resultMap="BaseResultMap">
+		<!-- SELECT * FROM t_sys_user where delete_flag = 0 and account = #{account} and tenant_org_id in(select tenant_org_id from t_sys_org where id = #{accountOrgId}); -->
+
+		<!-- 只有在非超级管理员组织时才限制 tenant_org_id -->
+    	SELECT * FROM t_sys_user where delete_flag = 0 and account = #{account} 
+        <if test="accountOrgId != null and accountOrgId != 1">
+          AND tenant_org_id = (
+              SELECT tenant_org_id 
+              FROM t_sys_org 
+              WHERE id = #{accountOrgId} 
+              LIMIT 1
+          )
+        </if>
+		
+	  	<!-- appid 精确匹配，包括 null 情况 -->
+      	<choose>
+          <when test="appid != null">
+              AND appid = #{appid}
+          </when>
+          <otherwise>
+              AND appid IS NULL
+          </otherwise>
+      	</choose>
+	</select>
+</mapper>

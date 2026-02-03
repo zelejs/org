@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jfeat.org.services.persistence.dao.SysOrgMapper">
+    <sql id="BaseQuerySql">
+        <if test="_base.orgId != 1 and _base.filterType == 2">
+            and id IN (SELECT c.id FROM t_sys_org f LEFT JOIN t_sys_org c ON (f.left_num &lt;=  c.left_num AND c.right_num &lt;= f.right_num and c.delete_flag = 0 and c.tenant_org_id = #{_base.tenantOrgId}) where f.id = #{_base.orgId} and f.delete_flag = 0)
+        </if>
+        <if test="_base.orgId != 1 and _base.filterType == 1">
+            and id IN (SELECT c.id FROM t_sys_org f LEFT JOIN t_sys_org c ON (f.left_num &lt;=  c.left_num AND c.right_num &lt;= f.right_num and c.delete_flag = 0) where f.id = #{_base.orgId} and f.delete_flag = 0)
+        </if>
+    </sql>
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.jfeat.org.services.persistence.model.SysOrg">
+        <id column="id" property="id" />
+        <result column="pid" property="pid" />
+        <result column="name" property="name" />
+        <result column="full_name" property="fullName" />
+        <result column="icon" property="icon" />
+        <result column="org_code" property="orgCode" />
+        <result column="node_level" property="nodeLevel" />
+        <result column="left_num" property="leftNum" />
+        <result column="right_num" property="rightNum" />
+        <result column="note" property="note" />
+        <result column="status" property="status" />
+        <result column="org_type" property="orgType" />
+        <result column="create_time" property="createTime" />
+        <result column="update_time" property="updateTime" />
+        <result column="b_type" property="bType" />
+        <result column="tenant_id" property="tenantId" />
+    </resultMap>
+
+    <select id="findById" parameterType="long" resultMap="BaseResultMap">
+        SELECT * FROM t_sys_org WHERE id = #{id} and delete_flag = 0
+    </select>
+
+    <select id="pageLikeNameAndOrgId" resultMap="BaseResultMap">
+        SELECT * from t_sys_org where delete_flag = 0
+        <if test="name != null and name != ''">
+            AND name LIKE CONCAT('%',#{name},'%')
+        </if>
+
+        <include refid="BaseQuerySql"/>
+        order by node_level ASC
+    </select>
+
+    <select id="listLikeNameAndOrgId" resultMap="BaseResultMap">
+        SELECT * from t_sys_org where delete_flag = 0
+        <if test="search != null and search != ''">
+            AND name LIKE CONCAT('%',#{search},'%')
+        </if>
+
+        <include refid="BaseQuerySql"/>
+        order by node_level ASC
+    </select>
+
+    <select id="visibleById" parameterType="long" resultMap="BaseResultMap">
+        SELECT * FROM t_sys_org WHERE id = #{id} and delete_flag = 0
+        <include refid="BaseQuerySql"/>
+    </select>
+
+    <select id="findOrgByCode" parameterType="String" resultMap="BaseResultMap">
+        SELECT * FROM t_sys_org WHERE org_code = #{code} and delete_flag = 0
+    </select>
+
+</mapper>

@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jfeat.org.services.domain.dao.UaasOrgDao">
+
+    <update id="updateLeftValueWhileCreateNode" parameterType="long">
+        UPDATE t_sys_org
+        SET t_sys_org.left_num = t_sys_org.left_num + 2
+        WHERE t_sys_org.delete_flag = 0 AND t_sys_org.left_num >= (SELECT a.right_num
+                                     FROM (SELECT t_sys_org.right_num
+                                           FROM t_sys_org
+                                           WHERE t_sys_org.id = #{pid} AND t_sys_org.delete_flag = 0) a);
+    </update>
+
+    <update id="updateRightValueWhileCreateNode" parameterType="long">
+        UPDATE t_sys_org
+        SET t_sys_org.right_num = t_sys_org.right_num + 2
+        WHERE t_sys_org.delete_flag = 0 AND t_sys_org.right_num >= (SELECT a.right_num
+                                      FROM (SELECT t_sys_org.right_num
+                                            FROM t_sys_org
+                                            WHERE t_sys_org.id = #{pid} AND t_sys_org.delete_flag = 0) a);
+    </update>
+
+    <delete id="deleteByIds" parameterType="long">
+        UPDATE t_sys_org SET delete_flag = 1 where delete_flag = 0
+        AND id IN
+        <foreach collection="ids" open="(" close=")" item="id" separator=",">
+            #{id}
+        </foreach>
+    </delete>
+
+    <update id="updateLeftValueWhileDeleteNode" parameterType="int">
+        UPDATE t_sys_org
+        SET t_sys_org.left_num = t_sys_org.left_num - (
+        #{rightNum} - #{leftNum} + 1
+        )
+        where t_sys_org.left_num > #{leftNum} AND t_sys_org.delete_flag = 0;
+    </update>
+
+    <update id="updateRightValueWhileDeleteNode" parameterType="int">
+        UPDATE t_sys_org
+        SET t_sys_org.right_num = t_sys_org.right_num - (
+        #{rightNum} - #{leftNum} + 1
+        )
+        where t_sys_org.right_num > #{rightNum} AND t_sys_org.delete_flag = 0;
+    </update>
+
+    <update id="updateChildrenAndSelfNode" parameterType="int">
+        UPDATE t_sys_org
+        SET t_sys_org.left_num  = -t_sys_org.left_num,
+            t_sys_org.right_num= -t_sys_org.right_num,
+            t_sys_org.node_level= -t_sys_org.node_level
+        where t_sys_org.left_num >= #{leftNum}
+          and t_sys_org.right_num &lt;= #{rightNum}
+          and t_sys_org.delete_flag = 0
+        ;
+
+    </update>
+    <update id="updateChildrenAndSelfNodeRe" parameterType="int">
+        UPDATE t_sys_org
+        SET t_sys_org.left_num  = (-t_sys_org.left_num) + #{pRightNum} - #{leftNum},
+            t_sys_org.right_num= (-t_sys_org.right_num) + #{pRightNum} - #{leftNum},
+            t_sys_org.node_level= -t_sys_org.node_level
+        where t_sys_org.left_num &lt; 0 AND t_sys_org.delete_flag = 0
+        ;
+
+    </update>
+
+    <update id="updateLeftValueWhileUpdateNodeDel" parameterType="int">
+        UPDATE t_sys_org
+        SET t_sys_org.left_num = t_sys_org.left_num - (#{rightNum} - #{leftNum} + 1)
+        where t_sys_org.left_num > #{leftNum} AND t_sys_org.delete_flag = 0;
+    </update>
+
+    <update id="updateRightValueWhileUpdateNodeDel" parameterType="int">
+        UPDATE t_sys_org
+        SET t_sys_org.right_num = t_sys_org.right_num - (#{rightNum} - #{leftNum} + 1)
+        where t_sys_org.right_num > #{rightNum} AND t_sys_org.delete_flag = 0;
+    </update>
+
+    <update id="updateLeftValueWhileUpdateNodeAdd" parameterType="int">
+        UPDATE t_sys_org
+        SET t_sys_org.left_num = t_sys_org.left_num + (#{rightNum} - #{leftNum} + 1)
+        where t_sys_org.left_num > #{pRightNum} AND t_sys_org.delete_flag = 0;
+    </update>
+
+    <update id="updateRightValueWhileUpdateNodeAdd" parameterType="int">
+        UPDATE t_sys_org
+        SET t_sys_org.right_num = t_sys_org.right_num + (#{rightNum} - #{leftNum} + 1)
+        where t_sys_org.right_num >= #{pRightNum} AND t_sys_org.delete_flag = 0;
+    </update>
+
+    <update id="updateNodeLevelWhileUpdateNode" parameterType="int">
+        UPDATE t_sys_org
+        SET t_sys_org.node_level = t_sys_org.node_level + (#{nodeLevel} - #{pNodeLevel} - 1)
+        where t_sys_org.node_level &lt; 0 AND t_sys_org.delete_flag = 0;
+    </update>
+
+    <select id="getAllDescendant" parameterType="long"
+            resultType="com.jfeat.org.services.persistence.model.SysOrg">
+        SELECT children.*
+        FROM t_sys_org,
+             t_sys_org as children
+        WHERE t_sys_org.left_num &lt; children.left_num
+          AND t_sys_org.right_num > children.left_num
+          and t_sys_org.id = #{id}
+          and t_sys_org.delete_flag = 0
+        order by t_sys_org.node_level ASC;
+    </select>
+
+    <select id="myOrgList" resultType="com.jfeat.org.services.persistence.model.SysOrg">
+        select t_sys_org.id,
+               t_sys_org.pid,
+               t_sys_org.name,
+               t_sys_org.full_name,
+               t_sys_org.icon,
+               t_sys_org.node_level,
+               t_sys_org.status,
+               t_sys_org.org_type,
+               t_sys_org.create_time,
+               t_sys_org.update_time
+        from t_sys_org
+                 LEFT JOIN t_org_user_relation on t_org_user_relation.org_id = t_sys_org.id
+        where 1 = 1
+          AND t_org_user_relation.user_id = #{userId}
+
+        order by t_sys_org.node_level ASC
+    </select>
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="OrgManagers" type="com.jfeat.org.services.persistence.model.SysUser">
+        <id column="id" property="id"/>
+        <result column="org_id" property="orgId"/>
+        <result column="avatar" property="avatar"/>
+        <result column="name" property="name"/>
+        <result column="sex" property="sex"/>
+        <result column="email" property="email"/>
+        <result column="phone" property="phone"/>
+    </resultMap>
+
+    <select id="orgManagers" resultMap="OrgManagers">
+        select t_sys_user.id,
+               t_sys_user.org_id,
+               t_sys_user.avatar,
+               t_sys_user.name,
+               t_sys_user.email,
+               t_sys_user.sex,
+               t_sys_user.createtime,
+               t_sys_user.phone
+        from t_sys_user
+                 LEFT JOIN t_org_user_relation
+                           on (t_org_user_relation.user_id = t_sys_user.id AND t_org_user_relation.is_leader = 1)
+        where 1 = 1
+          AND t_org_user_relation.org_id = #{orgId}
+
+    </select>
+
+    <select id="searchAllOrgRecord" resultType="com.jfeat.org.services.persistence.model.SysOrg" databaseId="mysql">
+        select * from
+        (
+        SELECT children.* FROM t_sys_org, t_sys_org as children WHERE t_sys_org.left_num &lt;= children.left_num AND
+        t_sys_org.right_num >= children.left_num order by t_sys_org.node_level ASC
+        ) t_sys_org
+        where t_sys_org.b_type = #{bType}
+        <if test="search!=null and search!=''">
+            and (t_sys_org.`name` LIKE concat('%',#{search},'%')
+            OR t_sys_org.full_name like concat('%',#{search},'%'))
+            OR t_sys_org.org_code like concat('%',#{search},'%'))
+        </if>
+    </select>
+
+    <select id="getRootOrg" resultType="com.jfeat.org.services.persistence.model.SysOrg">
+        select t_sys_org.*
+        from t_sys_org
+        WHERE t_sys_org.pid is null
+    </select>
+
+    <select id="searchDescendantOrgRecord" resultType="com.jfeat.org.services.persistence.model.SysOrg"
+            databaseId="mysql">
+        select * from
+        (
+        SELECT children.* FROM t_sys_org, t_sys_org as children WHERE t_sys_org.left_num &lt;= children.left_num AND
+        t_sys_org.right_num >= children.left_num and t_sys_org.id=#{orgId} order by t_sys_org.node_level ASC
+        ) t_sys_org
+        where t_sys_org.b_type = #{bType}
+        <if test="search!=null and search!=''">
+            and (t_sys_org.`name` LIKE concat('%',#{search},'%')
+            OR t_sys_org.full_name like concat('%',#{search},'%'))
+            OR t_sys_org.org_code like concat('%',#{search},'%'))
+        </if>
+    </select>
+</mapper>

@@ -1,0 +1,419 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jfeat.org.services.domain.dao.SysUserDao">
+	<sql id="commonOrgTree">
+		<if test="orgId!= 1">
+			and org_id IN (SELECT c.id FROM t_sys_org f LEFT JOIN t_sys_org c ON (f.left_num &lt;=  c.left_num AND c.right_num &lt;= f.right_num and c.delete_flag = 0) where f.id = #{orgId} and f.delete_flag = 0)
+		</if>
+	</sql>
+
+	<sql id="Base_Column_List">
+		org_id AS orgId, t_sys_user.id as id, account, t_sys_user.name as name,  birthday, sex, email,email_validated as emailValidated, avatar,
+		phone, t_sys_user.status as status,
+		createtime, version, require_password_reset as requirePasswordReset
+		,user_type as userType , tenant_org_id as tenantOrgId,dev_user_type as devUserType
+		,if(password is null,null,1) as password,
+		appid
+	</sql>
+
+	<sql id="Base_Column_List_With_Pwd">
+		org_id AS orgId, id, account, name, birthday, password, sex, email,email_validated as emailValidated, avatar,
+		phone, salt, status,
+		createtime, version, require_password_reset as requirePasswordReset
+		,user_type as userType , tenant_org_id as tenantOrgId,dev_user_type as devUserType
+	</sql>
+
+	<update id="updateUserById">
+		update t_sys_user set
+		id =#{entity.id}
+		<if test="entity.name !=null">
+			,`name` = #{entity.name}
+		</if>
+		<if test="entity.orgId !=null">
+			,`org_id` = #{entity.orgId}
+		</if>
+		<if test="entity.phone !=null">
+			,phone = #{entity.phone}
+		</if>
+		<if test="entity.userType !=null">
+			,user_type = #{entity.userType}
+		</if>
+		<if test="entity.sex !=null">
+			,sex = #{entity.sex}
+		</if>
+		<if test="entity.email !=null">
+			,email =#{entity.email}
+		</if>
+		<if test="entity.devUserType !=null">
+			,dev_user_type= #{entity.devUserType}
+		</if>
+		<if test="entity.userType !=null">
+			,user_type= #{entity.userType}
+		</if>
+		<if test="entity.avatar !=null">
+			,avatar= #{entity.avatar}
+		</if>
+		<if test="entity.birthday !=null">
+			,birthday= #{entity.birthday}
+		</if>
+		<if test="entity.password !=null">
+			,password= #{entity.password}
+		</if>
+		<if test="entity.registeredEmail !=null">
+			,registered_email= #{entity.registeredEmail}
+		</if>
+		<if test="entity.registeredPhone !=null">
+			,registered_phone= #{entity.registeredPhone}
+		</if>
+		<if test="entity.openid !=null">
+			,openid= #{entity.openid}
+		</if>
+		<if test="entity.unionid !=null">
+			,unionid= #{entity.unionid}
+		</if>
+
+		   where id=#{entity.id}
+	</update>
+
+	<update id="setUserDeleteFlag">
+		update t_sys_user set
+		delete_flag =#{flag} ,phone = null,org_id = null where id = #{id}
+	</update>
+
+	<select id="selectUsers" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		select
+		t_sys_user.*
+		from t_sys_user
+		left join t_sys_user_role
+		on t_sys_user.id = t_sys_user_role.user_id
+		where delete_flag = 0
+		<if test="roleId != null and roleId != 0">
+			and role_id = #{roleId}
+		</if>
+		<if test="name != null and name != ''">
+			and (phone like CONCAT(#{name},'%')
+			or account like CONCAT(#{name},'%')
+			or name like CONCAT(#{name},'%')
+			or email like CONCAT(#{name},'%'))
+		</if>
+		<if test="beginTime != null and beginTime != '' and endTime != null and endTime != ''">
+			and (createtime between CONCAT(#{beginTime},' 00:00:00') and CONCAT(#{endTime},' 23:59:59'))
+		</if>
+	</select>
+
+	<update id="setStatus">
+		update t_sys_user set status = #{status} where id = #{userId}
+	</update>
+
+	<update id="changePwd">
+		update t_sys_user set password = #{pwd} where id = #{userId}
+	</update>
+
+	<select id="getByAccountWithPwd" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		select
+		<include refid="Base_Column_List_With_Pwd" />
+		from t_sys_user where t_sys_user.account = #{account} and delete_flag = 0
+	</select>
+
+	<select id="getByAccountAndOrgIdWithPwd" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		select
+		<include refid="Base_Column_List_With_Pwd" />
+		from t_sys_user where t_sys_user.account = #{account} and delete_flag = 0
+		<if test="orgId != null and orgId != 0">
+			and t_sys_user.org_id = #{orgId}
+		</if>
+	</select>
+
+	<select id="getByAccount" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		select
+		<include refid="Base_Column_List" />
+		from t_sys_user
+		where t_sys_user.account = #{account}
+			and
+			(t_sys_user.org_id in
+				(select c.id
+				from t_sys_org  f
+				left join t_sys_org   c
+				on
+				    (f.left_num &lt; c.left_num
+				And f.right_num > c.left_num)
+				where f.id=#{orgId}	)
+				or t_sys_user.org_id=#{orgId}
+			)
+		and delete_flag = 0
+
+	</select>
+
+	<select id="getAccountByPhone" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		select
+		<include refid="Base_Column_List" />
+		from t_sys_user
+		where t_sys_user.phone = #{phone}
+	</select>
+
+
+	<select id="getAccountByEmail" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		select
+		<include refid="Base_Column_List" />
+		from t_sys_user
+		where t_sys_user.email = #{email}
+	</select>
+
+
+	<select id="getByOrgCode" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		SELECT
+		<include refid="Base_Column_List" />
+		FROM
+		t_sys_user LEFT JOIN t_sys_org on t_sys_org.id = t_sys_user.org_id
+		WHERE
+		t_sys_user.account = #{account}
+		and
+		org_code = #{orgCode}
+
+		AND delete_flag = 0
+
+	</select>
+
+	<select id="checkUserExist" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		SELECT
+		<include refid="Base_Column_List" />
+		FROM
+		t_sys_user
+		WHERE
+		(
+		t_sys_user.account = #{account}
+		or
+		(t_sys_user.phone = #{account})
+		or
+		(t_sys_user.email = #{account})
+		)
+		AND delete_flag = 0
+		<if test="tenantOrgId != null" >
+			and t_sys_user.tenant_org_id = #{tenantOrgId}
+		</if>
+	</select>
+
+	<select id="checkUserExistLogin" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		SELECT
+		<include refid="Base_Column_List" />
+		FROM
+		t_sys_user
+		WHERE
+		(
+		t_sys_user.account = #{account}
+		or
+		(t_sys_user.phone = #{account})
+		or
+		(t_sys_user.email = #{account} and t_sys_user.registered_email = 1)
+		)
+		AND delete_flag = 0
+		AND (
+		t_sys_user.org_id IN (
+		SELECT
+		c.id
+		FROM
+		t_sys_org f
+		LEFT JOIN t_sys_org c ON (
+		f.left_num &lt;= c.left_num
+		AND c.right_num &lt;= f.right_num
+		)
+		WHERE
+		f.id = #{orgId}
+		))
+	</select>
+
+	<select id="getUserByOrgIdNoTree" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		SELECT
+		<include refid="Base_Column_List" />
+		FROM
+		t_sys_user LEFT JOIN t_sys_org on t_sys_org.id = t_sys_user.org_id
+		WHERE
+		t_sys_user.account = #{account}
+		and
+		t_sys_org.id = #{orgId}
+
+		AND delete_flag = 0
+
+	</select>
+
+	<select id="getByOrgCodeTree" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		SELECT
+		<include refid="Base_Column_List" />
+		FROM
+			t_sys_user
+		WHERE
+			t_sys_user.account = #{account}
+		AND (
+			t_sys_user.org_id IN (
+		SELECT
+			c.id
+		FROM
+			t_sys_org f
+		LEFT JOIN t_sys_org c ON (
+			f.left_num &lt;= c.left_num
+		AND c.right_num &lt;= f.right_num
+			)
+		WHERE
+			f.org_code = #{orgCode}
+		))
+		AND delete_flag = 0
+
+	</select>
+
+
+	<select id="getByAccountOne" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		select
+		<include refid="Base_Column_List" />
+		from t_sys_user where t_sys_user.account = #{account} and delete_flag = 0
+	</select>
+
+
+	<select id="getByUserId" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		select
+		<include refid="Base_Column_List_With_Pwd" />
+		from t_sys_user where t_sys_user.id = #{userId} and delete_flag = 0
+	</select>
+
+	<select id="getByPhone" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		select
+		<include refid="Base_Column_List" />
+		from t_sys_user where phone = #{phone} and delete_flag = 0
+	</select>
+
+	<select id="getByOpenid" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		select
+		<include refid="Base_Column_List" />
+		from t_sys_user where openid = #{openid} and delete_flag = 0
+	</select>
+
+	<select id="selectCount" resultType="Integer">
+		select
+		count(*)
+		from t_sys_user
+		left join t_sys_user_role
+		on t_sys_user.id = t_sys_user_role.user_id
+		where delete_flag = 0
+		<if test="roleId != null and roleId != 0">
+			and role_id = #{roleId}
+		</if>
+	</select>
+
+
+	<select id="getUnique" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		select
+		<include refid="Base_Column_List" />
+		from t_sys_user
+		where delete_flag = 0
+		<if test="account != null and account!= ''">
+			and account = #{account}
+		</if>
+		<if test="email != null and email!= ''">
+			and  email = #{email}
+		</if>
+		<if test="phone != null and phone!= ''">
+			and  phone = #{phone}
+		</if>
+	</select>
+
+	<update id="updateOrgId" >
+		update t_org_user_relation set is_primary=0 where user_id=#{id}
+	</update>
+
+	<select id="selectUserByFatherOrgId" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		select * from t_sys_user where
+
+		( org_id
+		in (
+		select chi.id
+		from t_sys_org fa LEFT JOIN t_sys_org chi
+		on fa.left_num&lt;chi.left_num and fa.right_num> chi.right_num
+		where fa.id=#{orgId}
+		)or t_sys_user.org_id=#{orgId}
+		)
+		and t_sys_user.account=#{account}
+		;
+	</select>
+	
+	<select id="getUserCount" resultType="Integer">
+		select COUNT(*) from t_sys_user;
+	</select>
+
+	<select id="getTestUserList" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		select * from t_sys_user where t_sys_user.dev_user_type = 1 and delete_flag =0
+	</select>
+
+	<select id="loginByOpenidUnionid" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		select * from t_sys_user where t_sys_user.openid = #{openid} and t_sys_user.unionid = #{unionid}
+	</select>
+
+
+	<select id="getTenantOrgIdByDomain" resultType="Long">
+		select org_id from t_tenant where domain = #{domain};
+	</select>
+
+
+	<select id="getUserByTenant" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		select t_sys_user.* from t_sys_user left join t_tenant on
+			t_sys_user.org_id IN (
+			SELECT
+				c.id
+			FROM
+				t_sys_org f
+			LEFT JOIN t_sys_org c ON (
+				f.left_num &lt;= c.left_num
+				AND c.right_num &lt;= f.right_num
+				)
+			WHERE
+				f.id = t_tenant.org_id
+				)
+			where t_tenant.domain = #{domain}
+		  	and t_sys_user.account = #{account};
+	</select>
+
+	<!-- 根据域名获取用户 （用户可能在顶部组织会出现多个） 顶层组织单独查询-->
+	<select id="getUserByAppDomain" resultType="com.jfeat.org.services.persistence.model.SysUser">
+		SELECT
+		t_sys_user.*
+
+		FROM
+		t_sys_user left join t_tenant on (
+		t_sys_user.org_id
+
+		IN (
+		SELECT
+		c.id
+		FROM
+		t_sys_org f
+		LEFT JOIN t_sys_org c ON (
+		f.left_num &lt;= c.left_num
+		AND c.right_num &lt;= f.right_num
+		)
+		WHERE
+		f.id = t_tenant.org_id
+		))
+		left join t_saas_contract on t_saas_contract.id = t_tenant.contract_id
+		left join t_saas_contract_template template on template.id = t_saas_contract.contract_template_id
+		left join t_saas_application_example on t_saas_application_example.contract_template_id = template.id
+		WHERE
+		t_saas_application_example.domain  = #{domain}
+		and t_sys_user.account = #{account}
+	</select>
+
+	<select id="getTenantOrgIdByDomainAll" resultType="com.jfeat.org.services.domain.model.DomainComeFrom">
+		select t_tenant.org_id as orgId,if(t_saas_application_example.id is NULL,"index","app") as comeFrom
+		from
+			t_tenant
+				left join t_saas_contract on t_saas_contract.id = t_tenant.contract_id
+				left join t_saas_contract_template template on template.id = t_saas_contract.contract_template_id
+				left join t_saas_application_example on t_saas_application_example.contract_template_id = template.id
+				                                            and t_saas_application_example.domain  = #{domain}
+		WHERE
+			t_tenant.domain = #{domain}  or t_saas_application_example.domain  = #{domain}
+	</select>
+
+	<update id="deleteTreeByOrgId" parameterType="long">
+		UPDATE t_sys_user SET delete_flag = 1 WHERE delete_flag = 0
+		<include refid="commonOrgTree" />
+	</update>
+
+</mapper>
