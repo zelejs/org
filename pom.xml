@@ -4,9 +4,19 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.jfeat</groupId>
     <artifactId>org</artifactId>
-    <version>5.0.0</version>
+    <version>21.0.0</version>
     <packaging>jar</packaging>
     <!--update history
+       from 5.0.0 to 21.0.0
+       @when 2026-02-03
+       Upgrade Spring Boot 2.x to 3.x and Java 11/8 to 17
+       - Migrate javax.* to jakarta.* namespace
+       - Update Spring Boot to 3.4.1
+       - Update Spring Cloud to 2023.0.4
+       - Update Java version to 17
+       - Replace fastjson with fastjson2
+       - Add SpringDoc OpenAPI (Swagger 3)
+
        keep 5.0.0, add SysTenant
        @when 2025-09
 
@@ -22,28 +32,51 @@
     <description>org module</description>
 
     <parent>
-        <groupId>com.jfeat</groupId>
-        <artifactId>pom-parent</artifactId>
+        <groupId>com.xinzhi.plat</groupId>
+        <artifactId>plat-parent</artifactId>
         <version>1.0.0</version>
         <relativePath/>
     </parent>
 
     <properties>
         <skipStandalone>true</skipStandalone>
-        <perm-core.version>0.3.0</perm-core.version>
+        <jwt-core.version>21.0.0</jwt-core.version>
+        <crud-plus.version>21.0.0</crud-plus.version>
+        <java.version>17</java.version>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <spring-boot.version>3.4.1</spring-boot.version>
+        <spring-cloud.version>2023.0.4</spring-cloud.version>
+        <fastjson2.version>2.0.53</fastjson2.version>
+        <springdoc.version>2.7.0</springdoc.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring Boot BOM -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Spring Cloud BOM -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <version>${lombok.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.jfeat</groupId>
-            <artifactId>crud-core</artifactId>
-            <version>${crud-core.version}</version>
         </dependency>
         <dependency>
             <groupId>com.jfeat</groupId>
@@ -62,80 +95,52 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <version>${h2.version}</version>
-            <scope>test</scope>
-        </dependency>
 
-        <!--allow swagger support java 11 (above java9)-->
+        <!-- Jakarta EE Dependencies (Spring Boot 3.x) -->
         <dependency>
-            <groupId>javax.xml.bind</groupId>
-            <artifactId>jaxb-api</artifactId>
-            <version>2.3.1</version>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.sun.xml.bind</groupId>
-            <artifactId>jaxb-core</artifactId>
-            <version>2.3.0</version>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>com.sun.xml.bind</groupId>
-            <artifactId>jaxb-impl</artifactId>
-            <version>2.3.1</version>
-        </dependency>
-        <dependency>
-            <groupId>javax.activation</groupId>
-            <artifactId>activation</artifactId>
-            <version>1.1.1</version>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
         </dependency>
         <dependency>
             <groupId>org.aspectj</groupId>
             <artifactId>aspectjweaver</artifactId>
-            <version>1.9.4</version>
+        </dependency>
+
+        <!-- Alibaba fastjson2 -->
+        <dependency>
+            <groupId>com.alibaba.fastjson2</groupId>
+            <artifactId>fastjson2</artifactId>
+            <version>${fastjson2.version}</version>
+        </dependency>
+
+        <!-- SpringDoc OpenAPI (Swagger 3) -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
             <plugin>
-                <groupId>com.github.kongchen</groupId>
-                <artifactId>swagger-maven-plugin</artifactId>
-                <version>3.1.5</version>
-                <configuration>
-                    <apiSources>
-                        <apiSource>
-                            <springmvc>true</springmvc>
-                            <locations>
-                                <location>com.jfeat</location>
-                            </locations>
-                            <info>
-                                <title>${project.name}</title>
-                                <version>${project.version}</version>
-                                <description>${project.description}</description>
-                            </info>
-                            <swaggerDirectory>${project.build.directory}/swagger/</swaggerDirectory>
-                        </apiSource>
-                    </apiSources>
-                </configuration>
-                <executions>
-                    <execution>
-                        <phase>compile</phase>
-                        <goals>
-                            <goal>generate</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.6.0</version>
+                <version>3.11.0</version>
                 <configuration>
-                    <source>11</source>
-                    <target>11</target>
+                    <source>17</source>
+                    <target>17</target>
+                    <release>17</release>
+                    <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>
             <plugin>
