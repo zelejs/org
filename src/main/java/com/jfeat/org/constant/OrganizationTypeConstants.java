@@ -1,7 +1,5 @@
 package com.jfeat.org.constant;
 
-import io.swagger.models.auth.In;
-
 /**
  * @description: 组织类型常量
  * @project: uaas

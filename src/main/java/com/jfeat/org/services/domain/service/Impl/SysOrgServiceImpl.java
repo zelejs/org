@@ -1,9 +1,9 @@
 package com.jfeat.org.services.domain.service.Impl;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
-import com.alibaba.fastjson.serializer.SerializerFeature;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.fastjson2.JSONWriter;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -303,8 +303,7 @@ public class SysOrgServiceImpl implements SysOrgService {
         if (sysOrg == null) {
             throw new BusinessException(-1, "指定部门不存在，请核准并重新提交");
         }
-        SysOrgChildNodeModel result = JSON.parseObject(JSON.parseObject(JSON.toJSONString(sysOrg,
-                new SerializerFeature[]{SerializerFeature.WriteDateUseDateFormat})).toString(), SysOrgChildNodeModel.class);
+        SysOrgChildNodeModel result = JSON.parseObject(JSON.toJSONString(sysOrg), SysOrgChildNodeModel.class);
         result.setChildNode(uaasOrgDao.getAllDescendant(orgId));
         return result;
     }
@@ -494,14 +493,14 @@ public class SysOrgServiceImpl implements SysOrgService {
                 // 检查组织是否已存在
                 SysOrgExt existingOrg = sysOrgExtMapper.findByPartyId(partyOrgDTO.getId());
                 if (existingOrg != null) {
-                    logger.info("组织已存在，执行更新操作 {}", JSONObject.toJSON(partyOrgDTO));
+                    logger.info("组织已存在，执行更新操作 {}", JSON.toJSONString(partyOrgDTO));
                     // 如果存在，调用更新方法
                     partyUpdate(partyOrgDTO);
                 } else {
                     // 如果不存在，调用添加方法
                     SysOrgExt parant = sysOrgExtMapper.findByPartyId(partyOrgDTO.getParentId());
                     if(parant != null) {
-                        logger.info("组织不存在，执行新增操作 {}", JSONObject.toJSON(partyOrgDTO));
+                        logger.info("组织不存在，执行新增操作 {}", JSON.toJSONString(partyOrgDTO));
                         partyAdd(partyOrgDTO);
                     }
 

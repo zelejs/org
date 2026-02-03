@@ -33,7 +33,7 @@ public class SysOrgExt extends Model<SysOrgExt> {
     private Integer partyOrgType;
 
     @Override
-    protected Serializable pkVal() {
+    public Serializable pkVal() {
         return this.id;
     }
 

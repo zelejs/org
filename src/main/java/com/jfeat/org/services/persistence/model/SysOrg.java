@@ -263,7 +263,7 @@ public class SysOrg extends Model<SysOrg> {
     }
 
     @Override
-    protected Serializable pkVal() {
+    public Serializable pkVal() {
         return this.id;
     }
 

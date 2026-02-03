@@ -14,14 +14,14 @@ import com.jfeat.org.services.persistence.dao.SysOrgMapper;
 import com.jfeat.org.services.persistence.model.SysOrg;
 import com.jfeat.org.tree.SysOrgTreeItemDTO;
 import com.jfeat.org.tree.TreeUtls;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
  * @author 莫昌廉
  */
 @RestController
-@Api("sys-组织结构")
+@Tag(name = "sys-组织结构")
 @RequestMapping("/api/adm/org")
 public class OrgEndpoint {
     protected static Logger logger = LoggerFactory.getLogger(OrgEndpoint.class);
@@ -46,7 +46,7 @@ public class OrgEndpoint {
 
     @BusinessLog(name = "组织", value = "增加子组织")
     @PostMapping("/{id}/children")
-    @ApiOperation(value = "增加节点", response = SysOrg.class)
+    @Operation(summary = "增加节点")
 //    @com.jfeat.am.common.annotation.Permission(Permission.ORG_ADD)
     public Tip createNodeChildren(@PathVariable Long id, @RequestBody SysUserOrgRequest entity) {
         entity.setPid(id);
@@ -67,7 +67,7 @@ public class OrgEndpoint {
     @BusinessLog(name = "组织", value = "删除组织")
     @DeleteMapping("/{id}")
 //    @com.jfeat.am.common.annotation.Permission(Permission.ORG_DEL)
-    @ApiOperation(value = "删除节点", response = SysOrg.class)
+    @Operation(summary = "删除节点")
     public Tip deleteNode(@PathVariable Long id) {
         return SuccessTip.create(sysOrgService.deleteNode(JWTKit.getOrgId(), id));
     }
@@ -75,13 +75,13 @@ public class OrgEndpoint {
     @BusinessLog(name = "组织", value = "更新组织")
     @PutMapping("/{id}")
 //    @com.jfeat.am.common.annotation.Permission(Permission.ORG_EDIT)
-    @ApiOperation(value = "更新节点信息", response = SysOrg.class)
+    @Operation(summary = "更新节点信息")
     public Tip updateNode(@PathVariable Long id, @RequestBody SysOrg entity) {
         return SuccessTip.create(sysOrgService.updateNode(JWTKit.getOrgId(), id, entity));
     }
 
     @GetMapping("/{id}")
-    @ApiOperation(value = "查看单个节点的信息", response = SysOrg.class)
+    @Operation(summary = "查看单个节点的信息")
 //    @com.jfeat.am.common.annotation.Permission(Permission.ORG_VIEW)
     public Tip getOrg(@PathVariable Long id) {
         SysOrg visibleOrg = sysOrgService.getVisibleOrg(JWTKit.getOrgId(), id);
@@ -92,7 +92,7 @@ public class OrgEndpoint {
     }
 
     @GetMapping()
-    @ApiOperation(value = "分页查询", response = SysOrg.class)
+    @Operation(summary = "分页查询")
 //    @com.jfeat.am.common.annotation.Permission(Permission.ORG_VIEW)
     public Tip pageSysOrg(Page<SysOrg> page,
                             @RequestParam(value = "pageNum", defaultValue = "1") Integer pageNum,
@@ -106,7 +106,7 @@ public class OrgEndpoint {
     }
 
     @GetMapping("/tree")
-    @ApiOperation(value = "树状返回组织信息列表", response = SysOrg.class)
+    @Operation(summary = "树状返回组织信息列表")
     public Tip treeSysOrg(@RequestParam(value = "search", required = false) String search) {
         List<SysOrg> orgList = sysOrgService.listLikeNameAndOrgId(BaseQueryParam.create(), search);
         List<SysOrgTreeItemDTO> treeItems = orgList.stream().map(s -> {
