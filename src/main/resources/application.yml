@@ -79,7 +79,9 @@ security:
 ###################  开发环境的profile  ###################
 ##########################################################
 spring:
-  profiles: dev
+  config:
+    activate:
+      on-profile: dev
   datasource:
       url: jdbc:mysql://192.168.3.239/eav?useSSL=false&autoReconnect=true&useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull
       username: root
@@ -100,7 +102,9 @@ logging:
 ###################  正式环境的profile  ###################
 ##########################################################
 spring:
-  profiles: produce
+  config:
+    activate:
+      on-profile: produce
   datasource:
       url: jdbc:mysql://127.0.0.1:3306/sbaccount?autoReconnect=true&useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull
       username: root
