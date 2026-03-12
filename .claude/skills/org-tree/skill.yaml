@@ -1,0 +1,299 @@
+name: org-tree
+version: 1.1.0
+description: Organization tree management for t_sys_org table with Nested Set Model (left_num/right_num)
+
+author: Claude Code
+homepage: https://github.com/your-org/org-tree
+
+instructions: |
+  ## t_sys_org Organization Tree Structure
+
+  This skill manages the t_sys_org table using a hybrid tree structure approach:
+
+  ### Tree Structure Models
+
+  1. **Adjacency List Model** (Primary relationship):
+     - `pid`: Parent organization id (NULL = root node)
+     - `node_level`: Depth level in tree (0, 1, 2, ...)
+
+  2. **Nested Set Model** (Query optimization via pre-order traversal):
+     - `left_num`: Left boundary number for tree traversal
+     - `right_num`: Right boundary number for tree traversal
+
+  ### Nested Set Model Logic
+
+  The left_num and right_num form a pre-order traversal numbering system:
+
+  ```
+          [Root Org: left=1, right=10]
+                  /           \
+    [Child A: 2-5]          [Child B: 6-9]
+        /     \                  /
+    [A1:3-4]  [A2:...]       [B1:7-8]
+  ```
+
+  Key Properties:
+  - Parent's left_num < Child's left_num < Child's right_num < Parent's right_num
+  - All descendants have (left_num, right_num) within parent's range
+  - Leaf node: right_num = left_num + 1
+  - Subtree width: right_num - left_num + 1
+
+  Query Operations:
+  - Get all descendants: `WHERE left_num > parent_left AND right_num < parent_right`
+  - Get ancestor chain: `WHERE left_num < node_left AND right_num > node_right`
+  - Count descendants: `(right_num - left_num - 1) / 2`
+  - Check leaf node: `right_num = left_num + 1`
+
+  Create Node Operation (in SysOrgServiceImpl:92-114):
+  1. Find parent organization
+  2. Update left_num: `SET left_num = left_num + 2 WHERE left_num >= parent.right_num`
+  3. Update right_num: `SET right_num = right_num + 2 WHERE right_num >= parent.right_num`
+  4. Insert new node: `left_num = parent.right_num, right_num = parent.right_num + 1`
+
+  Delete Node Operation (in SysOrgServiceImpl:124-159):
+  1. Verify node has no children
+  2. Calculate width: `width = right_num - left_num + 1`
+  3. Update left_num: `SET left_num = left_num - width WHERE left_num > deleted_left`
+  4. Update right_num: `SET right_num = right_num - width WHERE right_num > deleted_right`
+  5. Mark node as deleted (delete_flag = 1)
+
+  ### Field Descriptions
+
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | `id` | bigint(20) | Primary key, AUTO_INCREMENT |
+  | `pid` | bigint(20) | Parent organization id (NULL = root) |
+  | `name` | varchar(60) | Organization name (required) |
+  | `full_name` | varchar(128) | Full organization name |
+  | `org_code` | varchar(50) | Organization code (unique) |
+  | `org_type` | smallint | 0=default, 1=tenant, 2=platform |
+  | `node_level` | int(11) | Tree depth level (0, 1, 2, ...) |
+  | `left_num` | int(11) | Nested set left boundary (pre-order) |
+  | `right_num` | int(11) | Nested set right boundary (pre-order) |
+  | `tenant_id` | bigint(20) | Parent tenant organization id |
+  | `tenant_org_id` | bigint(20) | Tenant org as top-level organization |
+  | `status` | varchar(26) | Status (default: 'NORMAL') |
+  | `b_type` | varchar(30) | Business type: 'SYSTEM' or 'USER' |
+  | `is_visible` | tinyint(1) | Visibility flag |
+  | `need_validate` | tinyint(1) | Require password reset for users |
+  | `delete_flag` | tinyint(1) | Soft delete flag (0=normal, 1=deleted) |
+  | `note` | text | Organization description |
+  | `icon` | varchar(255) | Icon URL |
+  | `create_time` | datetime | Creation timestamp |
+  | `update_time` | datetime | Update timestamp |
+
+configuration:
+  type: object
+  description: "Database configuration"
+  properties:
+    database_url:
+      type: string
+      description: "Database connection URL"
+    username:
+      type: string
+      description: "Database username"
+    password:
+      type: string
+      description: "Database password"
+
+functions:
+  - name: describe_org_table
+    description: "Describe t_sys_org table structure and organization logic"
+    parameters:
+      type: object
+      properties: {}
+    returns:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            table_name:
+              type: string
+            description:
+              type: string
+            fields:
+              type: array
+              items:
+                type: object
+            organization_logic:
+              type: object
+              properties:
+                parent_field:
+                  type: string
+                level_field:
+                  type: string
+                left_field:
+                  type: string
+                right_field:
+                  type: string
+                model_type:
+                  type: string
+                  description: "Hybrid: Adjacency List + Nested Set"
+
+  - name: export_tree_json
+    description: "Export t_sys_org table data as hierarchical tree JSON"
+    parameters:
+      type: object
+      properties:
+        output_file:
+          type: string
+          description: "Output JSON file path"
+        root_id:
+          type: integer
+          description: "Root organization id (default: null for all roots)"
+        format:
+          type: string
+          enum: [nested, flat, both]
+          default: both
+          description: "Output format: nested tree, flat list, or both"
+      required: [output_file]
+    returns:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            output_file:
+              type: string
+            record_count:
+              type: integer
+            tree:
+              type: object
+            flat_list:
+              type: array
+
+  - name: import_tree_json
+    description: "Import tree JSON and generate SQL INSERT statements"
+    parameters:
+      type: object
+      properties:
+        input_file:
+          type: string
+          description: "Input JSON file path"
+        output_sql:
+          type: string
+          description: "Output SQL file path"
+        mode:
+          type: string
+          enum: [insert, replace, merge]
+          default: insert
+          description: "SQL generation mode"
+        calculate_nested:
+          type: boolean
+          default: true
+          description: "Calculate left_num and right_num for Nested Set Model using pre-order traversal"
+      required: [input_file, output_sql]
+    returns:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            output_sql:
+              type: string
+            statements:
+              type: integer
+            nested_set_calculated:
+              type: boolean
+
+  - name: validate_tree
+    description: "Validate tree structure integrity (check parent references, nested sets, node_level consistency)"
+    parameters:
+      type: object
+      properties:
+        input_file:
+          type: string
+          description: "Tree JSON file to validate"
+      required: [input_file]
+    returns:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            is_valid:
+              type: boolean
+            errors:
+              type: array
+              items:
+                type: string
+            warnings:
+              type: array
+              items:
+                type: string
+
+  - name: audit_tree
+    description: "Audit tree structure for data consistency (supports both database and JSON modes)"
+    parameters:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [db, json]
+          description: "Audit mode: 'db' for database table, 'json' for JSON file"
+        input_file:
+          type: string
+          description: "Input JSON file path (required for json mode)"
+        format:
+          type: string
+          enum: [text, json]
+          default: text
+          description: "Output format (default: text)"
+        verbose:
+          type: boolean
+          default: false
+          description: "Verbose output with statistics"
+      required: [mode]
+    returns:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            is_valid:
+              type: boolean
+            error_count:
+              type: integer
+            warning_count:
+              type: integer
+            errors:
+              type: array
+              items:
+                type: object
+                properties:
+                  category:
+                    type: string
+                  message:
+                    type: string
+                  node_id:
+                    type: integer
+                  details:
+                    type: object
+            warnings:
+              type: array
+              items:
+                type: object
+            stats:
+              type: object
+              properties:
+                total_nodes:
+                  type: integer
+                root_nodes:
+                  type: integer
+                leaf_nodes:
+                  type: integer
+                max_depth:
+                  type: integer
+                nodes_per_level:
+                  type: object

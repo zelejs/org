@@ -1,0 +1,22 @@
+{
+  "name": "org-tree-scripts",
+  "version": "1.0.0",
+  "description": "Organization tree management scripts for t_sys_org table",
+  "main": "export-tree.js",
+  "scripts": {
+    "export": "node export-tree.js",
+    "import": "node import-tree.js",
+    "validate": "node validate-tree.js"
+  },
+  "keywords": [
+    "org-tree",
+    "nested-set",
+    "hierarchical",
+    "tree"
+  ],
+  "author": "Claude Code",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

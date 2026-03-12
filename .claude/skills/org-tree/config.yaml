@@ -1,0 +1,13 @@
+# Database configuration for org-tree skill
+# This config is used by Python scripts that connect via chatdb
+
+current:
+  active: primary
+
+primary:
+  host: sh-cynosdbmysql-grp-mlyunquo.sqls.cdnline.cn
+  port: 25133
+  user: root
+  password: zb2014@8888
+  database: study_power
+  charset: utf8mb4
