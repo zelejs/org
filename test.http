@@ -1,4 +1,4 @@
-@endpoint=http://localhost:8080
+@endpoint=http://localhost:8082
 
 @admin= Bearer 
 
@@ -11,7 +11,7 @@
 # }
 
 ### 查询组织树
-GET {{endpoint}}/api/adm/org/tree
+GET {{endpoint}}/api/adm/org/tree?appid=1
 Authorization: {{admin}} 
 
 

@@ -185,27 +185,19 @@ public class OrgEndpoint {
         // 创建查询参数，设置appid
         BaseQueryParam queryParam = BaseQueryParam.create();
         queryParam.setAppid(finalAppid);
-        List<SysOrg> orgList = sysOrgService.listLikeNameAndOrgId(queryParam, search);
 
-        // 如果最终使用的appid来自参数（JWT中appid为null），查找该appid对应的根组织
+        // 如果通过appid查询，需要清除orgId和filterType以获取所有相关组织
         if (jwtAppid == null && appid != null && !appid.isEmpty()) {
-            SysOrgTreeItemDTO rootItem = orgList.stream()
-                .filter(org -> appid.equals(org.getAppid()) && org.getPid() == null)
-                .findFirst()
-                .map(org -> {
-                    SysOrgTreeItemDTO dto = new SysOrgTreeItemDTO();
-                    dto.setTenantFlag(org.getId().equals(org.getTenantOrgId()));
-                    BeanUtils.copyProperties(org, dto);
-                    return dto;
-                })
-                .orElse(null);
-
-            if (rootItem != null) {
-                SysOrgTreeItemDTO top = new SysOrgTreeItemDTO();
-                top.setChildren(List.of(rootItem));
-                return SuccessTip.create(top);
-            }
+            queryParam.setOrgId(1L); // 设置为1以避免子树过滤
+            queryParam.setFilterType(null); // 清除过滤类型
+            logger.debug("Querying by appid, set orgId=1 to avoid subtree filtering");
         }
+
+        logger.info("Executing query with appid: {}, orgId: {}, filterType: {}, tenantOrgId: {}",
+            queryParam.getAppid(), queryParam.getOrgId(), queryParam.getFilterType(), queryParam.getTenantOrgId());
+
+        List<SysOrg> orgList = sysOrgService.listLikeNameAndOrgId(queryParam, search);
+        logger.info("Query returned {} organizations", orgList.size());
 
         // 转换为树节点DTO
         List<SysOrgTreeItemDTO> treeItems = orgList.stream().map(s -> {
@@ -215,7 +207,63 @@ public class OrgEndpoint {
             return sysOrgTreeItemDTO;
         }).collect(Collectors.toList());
 
-        SysOrgTreeItemDTO sysOrgTreeItemDTO = TreeUtls.buildTree(treeItems, orgId);
+        // 如果没有查询到任何组织，返回空树
+        if (treeItems.isEmpty()) {
+            logger.info("No organizations found for appid: {}, search: {}", finalAppid, search);
+            SysOrgTreeItemDTO top = new SysOrgTreeItemDTO();
+            top.setChildren(List.of());
+            return SuccessTip.create(top);
+        }
+
+        logger.debug("Query returned {} organizations", treeItems.size());
+        treeItems.forEach(item -> logger.debug("Org: id={}, name={}, pid={}, appid={}",
+            item.getId(), item.getName(), item.getPid(), item.getAppid()));
+
+        // 确定树的根节点ID
+        Long treeRootId = orgId;
+        logger.debug("Initial treeRootId from JWT: {}, jwtAppid: {}, paramAppid: {}", treeRootId, jwtAppid, appid);
+
+        // 如果通过appid参数查询（JWT中的appid为null），使用appid对应的顶级组织作为根节点
+        if (jwtAppid == null && appid != null && !appid.isEmpty()) {
+            // 查找appid匹配的顶级组织
+            treeRootId = treeItems.stream()
+                .filter(item -> {
+                    String itemAppid = item.getAppid();
+                    // 处理字符串比较，包括null值和类型转换
+                    boolean matches = itemAppid != null && itemAppid.equals(appid) && item.getPid() == null;
+                    logger.debug("Filtering item: id={}, appid='{}', pid={}, matches={}",
+                        item.getId(), itemAppid, item.getPid(), matches);
+                    return matches;
+                })
+                .map(SysOrgTreeItemDTO::getId)
+                .findFirst()
+                .orElseGet(() -> {
+                    // 如果找不到appid匹配的顶级组织，尝试找第一个顶级组织
+                    logger.warn("No top-level org found with appid={}, trying to find any top-level org", appid);
+                    return treeItems.stream()
+                        .filter(item -> item.getPid() == null)
+                        .map(SysOrgTreeItemDTO::getId)
+                        .findFirst()
+                        .orElse(orgId);
+                });
+            logger.debug("After appid filtering, treeRootId: {}", treeRootId);
+        }
+
+        // 检查treeRootId是否在treeItems中
+        Long finalTreeRootId = treeRootId;
+        if (treeItems.stream().noneMatch(item -> item.getId().equals(finalTreeRootId))) {
+            // 如果指定的根节点不在查询结果中，使用第一个顶级组织作为根节点
+            logger.warn("treeRootId {} not in query results, finding first top-level org", treeRootId);
+            treeRootId = treeItems.stream()
+                .filter(item -> item.getPid() == null)
+                .map(SysOrgTreeItemDTO::getId)
+                .findFirst()
+                .orElse(treeItems.get(0).getId());
+            logger.debug("After fallback, treeRootId: {}", treeRootId);
+        }
+
+        logger.info("Building tree with rootId: {}", treeRootId);
+        SysOrgTreeItemDTO sysOrgTreeItemDTO = TreeUtls.buildTree(treeItems, treeRootId);
         SysOrgTreeItemDTO top = new SysOrgTreeItemDTO();
         top.setChildren(List.of(sysOrgTreeItemDTO));
         return SuccessTip.create(top);
