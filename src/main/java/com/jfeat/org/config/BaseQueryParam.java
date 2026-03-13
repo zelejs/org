@@ -10,6 +10,7 @@ public class BaseQueryParam {
 
     private Long orgId;
     private Long tenantOrgId;
+    private String appid;
     // 1 所有子树 2 所有子树&&自己的租户
     private Integer filterType;
 
@@ -26,6 +27,7 @@ public class BaseQueryParam {
         BaseQueryParam baseQueryParam = new BaseQueryParam();
         baseQueryParam.setOrgId(orgId);
         baseQueryParam.setTenantOrgId(tenantOrgId);
+        baseQueryParam.setAppid(JWTKit.getAppid());
         baseQueryParam.setFilterType(filterType);
         return baseQueryParam;
     }

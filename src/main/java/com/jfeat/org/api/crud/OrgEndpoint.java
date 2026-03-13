@@ -157,21 +157,65 @@ public class OrgEndpoint {
     @GetMapping("/tree")
     @Operation(summary = "获取组织树形结构",
             description = "以树形结构返回组织列表。每个组织节点包含其子组织列表，" +
-                    "支持按组织名称进行搜索过滤。返回的树形结构从当前用户的组织开始。")
+                    "支持按组织名称进行搜索过滤。返回的树形结构从当前用户的组织开始。" +
+                    "appid参数仅在JWT中appid为null时生效。")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "查询成功", content = @Content(schema = @Schema(implementation = Tip.class)))
+            @ApiResponse(responseCode = "200", description = "查询成功", content = @Content(schema = @Schema(implementation = Tip.class))),
+            @ApiResponse(responseCode = "400", description = "请求参数错误：JWTKit.getOrgId()=null 且 appid=null")
     })
     public Tip treeSysOrg(
             @Parameter(description = "搜索关键词（组织名称，支持模糊搜索）", example = "技术")
-            @RequestParam(value = "search", required = false) String search) {
-        List<SysOrg> orgList = sysOrgService.listLikeNameAndOrgId(BaseQueryParam.create(), search);
+            @RequestParam(value = "search", required = false) String search,
+            @Parameter(description = "应用ID，仅在JWT中appid为null时生效", example = "school-app")
+            @RequestParam(value = "appid", required = false) String appid) {
+        // 获取JWT中的appid和orgId
+        String jwtAppid = JWTKit.getAppid();
+        Long jwtOrgId = JWTKit.getOrgId();
+
+        // 优先使用JWT中的appid，如果JWT中appid为null才使用参数中的appid
+        String finalAppid = (jwtAppid != null && !jwtAppid.isEmpty()) ? jwtAppid : appid;
+        Long orgId = jwtOrgId;
+
+        // 如果JWT返回的orgId为null且最终appid也为null，抛异常
+        if (orgId == null && (finalAppid == null || finalAppid.isEmpty())) {
+            throw new com.jfeat.crud.base.exception.BusinessException(-1,
+                "JWTKit.getOrgId()=null && appid=null");
+        }
+
+        // 创建查询参数，设置appid
+        BaseQueryParam queryParam = BaseQueryParam.create();
+        queryParam.setAppid(finalAppid);
+        List<SysOrg> orgList = sysOrgService.listLikeNameAndOrgId(queryParam, search);
+
+        // 如果最终使用的appid来自参数（JWT中appid为null），查找该appid对应的根组织
+        if (jwtAppid == null && appid != null && !appid.isEmpty()) {
+            SysOrgTreeItemDTO rootItem = orgList.stream()
+                .filter(org -> appid.equals(org.getAppid()) && org.getPid() == null)
+                .findFirst()
+                .map(org -> {
+                    SysOrgTreeItemDTO dto = new SysOrgTreeItemDTO();
+                    dto.setTenantFlag(org.getId().equals(org.getTenantOrgId()));
+                    BeanUtils.copyProperties(org, dto);
+                    return dto;
+                })
+                .orElse(null);
+
+            if (rootItem != null) {
+                SysOrgTreeItemDTO top = new SysOrgTreeItemDTO();
+                top.setChildren(List.of(rootItem));
+                return SuccessTip.create(top);
+            }
+        }
+
+        // 转换为树节点DTO
         List<SysOrgTreeItemDTO> treeItems = orgList.stream().map(s -> {
             SysOrgTreeItemDTO sysOrgTreeItemDTO = new SysOrgTreeItemDTO();
             sysOrgTreeItemDTO.setTenantFlag(s.getId().equals(s.getTenantOrgId()));
             BeanUtils.copyProperties(s, sysOrgTreeItemDTO);
             return sysOrgTreeItemDTO;
         }).collect(Collectors.toList());
-        SysOrgTreeItemDTO sysOrgTreeItemDTO = TreeUtls.buildTree(treeItems, JWTKit.getOrgId());
+
+        SysOrgTreeItemDTO sysOrgTreeItemDTO = TreeUtls.buildTree(treeItems, orgId);
         SysOrgTreeItemDTO top = new SysOrgTreeItemDTO();
         top.setChildren(List.of(sysOrgTreeItemDTO));
         return SuccessTip.create(top);

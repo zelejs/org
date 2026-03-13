@@ -11,3 +11,6 @@ build/
 .DS_Store
 logs/
 config.yaml
+._*
+/config/
+.cursor_db_cli_last_cmd.json
