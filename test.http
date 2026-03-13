@@ -2,13 +2,17 @@
 
 @admin= Bearer 
 
-### 管理员登录
-POST {{endpoint}}/api/sys/oauth/login
+# ### 管理员登录
+# POST {{endpoint}}/api/sys/oauth/login
 
-{
-   "account": "admin",
-   "password": "admin"
-}
+# {
+#    "account": "admin",
+#    "password": "admin"
+# }
+
+### 查询组织树
+GET {{endpoint}}/api/adm/org/tree
+Authorization: {{admin}} 
 
 
 ### 查询组织
