@@ -60,6 +60,18 @@ mybatis-plus:
     multipleResultSetsEnabled: true #开启的话，延时加载一个属性时会加载该对象全部属性，否则按需加载属性
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl #打印sql语句,调试用
 
+###################  SpringDoc OpenAPI 配置  ###################
+springdoc:
+  api-docs:
+    path: /api-docs  # OpenAPI JSON 文档路径
+  swagger-ui:
+    path: /swagger-ui.html  # Swagger UI 访问路径
+    enabled: true  # 启用 Swagger UI
+    tags-sorter: alpha  # 按字母顺序排序标签
+    operations-sorter: alpha  # 按字母顺序排序操作
+  show-actuator: false  # 不显示 actuator 端点
+  default-flat-param-object: true  # 展平参数对象
+
 auth-server: http://106.12.212.64:9999/uaa #授权中心地址
 security:
   basic:
