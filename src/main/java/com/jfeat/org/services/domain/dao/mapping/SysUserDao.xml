@@ -316,7 +316,7 @@
 	</select>
 
 	<update id="updateOrgId" >
-		update t_org_user_relation set is_primary=0 where user_id=#{id}
+		update t_sys_org_user_relation set is_primary=0 where user_id=#{id}
 	</update>
 
 	<select id="selectUserByFatherOrgId" resultType="com.jfeat.org.services.persistence.model.SysUser">

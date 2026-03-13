@@ -119,9 +119,9 @@
                t_sys_org.create_time,
                t_sys_org.update_time
         from t_sys_org
-                 LEFT JOIN t_org_user_relation on t_org_user_relation.org_id = t_sys_org.id
+                 LEFT JOIN t_sys_org_user_relation on t_sys_org_user_relation.org_id = t_sys_org.id
         where 1 = 1
-          AND t_org_user_relation.user_id = #{userId}
+          AND t_sys_org_user_relation.user_id = #{userId}
 
         order by t_sys_org.node_level ASC
     </select>
@@ -147,10 +147,10 @@
                t_sys_user.createtime,
                t_sys_user.phone
         from t_sys_user
-                 LEFT JOIN t_org_user_relation
-                           on (t_org_user_relation.user_id = t_sys_user.id AND t_org_user_relation.is_leader = 1)
+                 LEFT JOIN t_sys_org_user_relation
+                           on (t_sys_org_user_relation.user_id = t_sys_user.id AND t_sys_org_user_relation.is_leader = 1)
         where 1 = 1
-          AND t_org_user_relation.org_id = #{orgId}
+          AND t_sys_org_user_relation.org_id = #{orgId}
 
     </select>
 
@@ -160,7 +160,7 @@
         SELECT children.* FROM t_sys_org, t_sys_org as children WHERE t_sys_org.left_num &lt;= children.left_num AND
         t_sys_org.right_num >= children.left_num order by t_sys_org.node_level ASC
         ) t_sys_org
-        where t_sys_org.b_type = #{bType}
+        where t_sys_org.appid = #{appid}
         <if test="search!=null and search!=''">
             and (t_sys_org.`name` LIKE concat('%',#{search},'%')
             OR t_sys_org.full_name like concat('%',#{search},'%'))
@@ -181,7 +181,7 @@
         SELECT children.* FROM t_sys_org, t_sys_org as children WHERE t_sys_org.left_num &lt;= children.left_num AND
         t_sys_org.right_num >= children.left_num and t_sys_org.id=#{orgId} order by t_sys_org.node_level ASC
         ) t_sys_org
-        where t_sys_org.b_type = #{bType}
+        where t_sys_org.appid = #{appid}
         <if test="search!=null and search!=''">
             and (t_sys_org.`name` LIKE concat('%',#{search},'%')
             OR t_sys_org.full_name like concat('%',#{search},'%'))

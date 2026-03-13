@@ -37,9 +37,9 @@ public interface UaasOrgDao {
 
     List<SysOrg> getAllDescendant(@Param("id") Long id);
 
-    List<SysOrgRecord> searchAllOrgRecord(@Param("search")String search, @Param("bType")String bType);
+    List<SysOrgRecord> searchAllOrgRecord(@Param("search")String search, @Param("appid")String appid);
 
-    List<SysOrgRecord> searchDescendantOrgRecord(@Param("orgId") Long orgId, @Param("search") String search, @Param("bType")String bType);
+    List<SysOrgRecord> searchDescendantOrgRecord(@Param("orgId") Long orgId, @Param("search") String search, @Param("appid")String appid);
 
     List<SysOrg> getRootOrg();
 

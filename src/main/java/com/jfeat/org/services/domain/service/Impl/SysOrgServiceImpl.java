@@ -106,7 +106,7 @@ public class SysOrgServiceImpl implements SysOrgService {
         entity.setNodeLevel(parentOrg.getNodeLevel() + 1);
         entity.setLeftNum(parentOrg.getRightNum());
         entity.setRightNum(parentOrg.getRightNum() + 1);
-        entity.setbType(parentOrg.getbType());
+        entity.setAppid(parentOrg.getAppid());
         entity.setUpdateTime(new Date());
         entity.setCreateTime(new Date());
         sysOrgMapper.insert(entity);
@@ -286,9 +286,9 @@ public class SysOrgServiceImpl implements SysOrgService {
         }
         // 平台组织
         if(Platform.ID.getValue().equals(orgId)){
-            return uaasOrgDao.searchAllOrgRecord(search, "SYSTEM");
+            return uaasOrgDao.searchAllOrgRecord(search, sysOrg.getAppid());
         }else {
-            return uaasOrgDao.searchDescendantOrgRecord(orgId, search, "SYSTEM");
+            return uaasOrgDao.searchDescendantOrgRecord(orgId, search, sysOrg.getAppid());
         }
     }
 

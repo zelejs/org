@@ -79,8 +79,17 @@ public class SysOrg extends Model<SysOrg> {
     @TableField("org_type")
     private Integer orgType;
 
-    @TableField("b_type")
-    private String bType;
+    /**
+     * 组织类型0-平台/应用,1-租户,2-分公司/学院/局,3-部门/科/村镇,4-用户组织
+     */
+    @TableField("type")
+    private Integer type;
+
+    /**
+     * 应用ID，代表最高层级组织，appid=null为默认appid
+     */
+    @TableField("appid")
+    private String appid;
 
     @TableField("icon")
     private String icon;
@@ -133,12 +142,20 @@ public class SysOrg extends Model<SysOrg> {
         this.needValidate = needValidate;
     }
 
-    public String getbType() {
-        return bType;
+    public Integer getType() {
+        return type;
     }
 
-    public void setbType(String bType) {
-        this.bType = bType;
+    public void setType(Integer type) {
+        this.type = type;
+    }
+
+    public String getAppid() {
+        return appid;
+    }
+
+    public void setAppid(String appid) {
+        this.appid = appid;
     }
 
     public Long getId() {
@@ -283,6 +300,8 @@ public class SysOrg extends Model<SysOrg> {
                 ", createTime=" + createTime +
                 ", updateTime=" + updateTime +
                 ", orgType=" + orgType +
+                ", type=" + type +
+                ", appid=" + appid +
                 ", deleteFlag=" + deleteFlag +
                 ", tenantOrgId=" + tenantOrgId +
                 "}";

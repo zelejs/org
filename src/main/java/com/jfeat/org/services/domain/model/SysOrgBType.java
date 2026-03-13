@@ -1,13 +1,15 @@
 package com.jfeat.org.services.domain.model;
 
 /**
- * 组织业务类型
- * @SYSTEM  系统组织
- * @USER  用户组织
+ * @deprecated 使用 {@link com.jfeat.org.constant.OrganizationTypeConstants} 替代
+ * 组织类型已迁移到 type 字段 (tinyint)
  */
+@Deprecated
 public class SysOrgBType {
 
+    @Deprecated
     public static final String SYSTEM = "SYSTEM";
 
+    @Deprecated
     public static final String USER = "USER";
 }
