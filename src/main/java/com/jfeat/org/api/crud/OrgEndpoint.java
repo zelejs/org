@@ -183,14 +183,18 @@ public class OrgEndpoint {
         }
 
         // 创建查询参数，设置appid
-        BaseQueryParam queryParam = BaseQueryParam.create();
-        queryParam.setAppid(finalAppid);
-
-        // 如果通过appid查询，需要清除orgId和filterType以获取所有相关组织
+        BaseQueryParam queryParam;
+        // 如果通过appid查询（JWT中的appid为null），使用appid对应的顶级组织作为根节点
         if (jwtAppid == null && appid != null && !appid.isEmpty()) {
-            queryParam.setOrgId(1L); // 设置为1以避免子树过滤
-            queryParam.setFilterType(null); // 清除过滤类型
-            logger.debug("Querying by appid, set orgId=1 to avoid subtree filtering");
+            // 创建不带过滤条件的查询参数
+            queryParam = new BaseQueryParam();
+            queryParam.setAppid(finalAppid);
+            queryParam.setOrgId(1L); // 设置为1以避免子树过滤（SQL中 orgId != 1 的条件不会触发）
+            queryParam.setFilterType(0); // 设置为0以确保不触发过滤条件
+            logger.debug("Querying by appid, set orgId=1 and filterType=0 to avoid subtree filtering");
+        } else {
+            queryParam = BaseQueryParam.create();
+            queryParam.setAppid(finalAppid);
         }
 
         logger.info("Executing query with appid: {}, orgId: {}, filterType: {}, tenantOrgId: {}",
