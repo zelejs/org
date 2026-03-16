@@ -103,6 +103,23 @@ spring:
       schema: classpath*:sql/*-schema.sql
       data: classpath*:sql/*-data.sql
       initialize: false
+  redis:
+    host: 192.168.3.20
+    port: 6379
+    password: sandbox
+    database: 0
+    timeout: 10s
+    lettuce:
+      pool:
+        max-active: 8
+        max-wait: -1ms
+        max-idle: 8
+        min-idle: 1
+      shutdown-timeout: 100ms
+  cache:
+    type: redis
+    redis:
+      time-to-live: 3600000
 
 logging:
   level: debug
