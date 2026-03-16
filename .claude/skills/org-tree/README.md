@@ -71,33 +71,46 @@ FROM t_sys_org WHERE id = :org_id;
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | bigint(20) | Primary key, AUTO_INCREMENT |
-| `pid` | bigint(20) | Parent organization id (NULL = root) |
-| `name` | varchar(60) | Organization name (required) |
-| `full_name` | varchar(128) | Full organization name |
-| `org_code` | varchar(50) | Organization code (unique) |
-| `org_type` | smallint | 0=default, 1=tenant, 2=platform |
-| `node_level` | int(11) | Tree depth level (0, 1, 2, ...) |
-| **`left_num`** | int(11) | **Nested set left boundary** |
-| **`right_num`** | int(11) | **Nested set right boundary** |
-| `tenant_id` | bigint(20) | Parent tenant organization id |
-| `tenant_org_id` | bigint(20) | Tenant org as top-level organization |
-| `status` | varchar(26) | Status (default: 'NORMAL') |
-| `b_type` | varchar(30) | Business type: 'SYSTEM' or 'USER' |
-| `is_visible` | tinyint(1) | Visibility flag |
-| `need_validate` | tinyint(1) | Require password reset for users |
-| `delete_flag` | tinyint(1) | Soft delete flag (0=normal, 1=deleted) |
-| `note` | text | Organization description |
-| `icon` | varchar(255) | Icon URL |
+| `id` | bigint | Primary key, AUTO_INCREMENT |
+| `pid` | bigint | Parent organization id (NULL = root) |
+| `name` | varchar(255) | Organization name (short form) |
+| `full_name` | varchar(255) | Full organization name |
+| `org_code` | varchar(255) | Organization code (unique) |
+| `appid` | varchar(50) | Application ID, represents top-level organization (null = default) |
+| `org_type` | int | Organization type (0=default, 1=tenant, 2=platform) |
+| `node_level` | int | Tree depth level (0, 1, 2, ...) |
+| **`left_num`** | int | **Nested set left boundary** |
+| **`right_num`** | int | **Nested set right boundary** |
+| `note` | varchar(500) | Organization description |
+| `status` | varchar(50) | Status (default: 'NORMAL') |
 | `create_time` | datetime | Creation timestamp |
 | `update_time` | datetime | Update timestamp |
+| `b_type` | varchar(50) | Business type |
+| `icon` | varchar(255) | Icon URL |
+| `is_visible` | tinyint(1) | Visibility flag (default: 1) |
+| `need_validate` | tinyint(1) | Require validation (default: 0) |
+| `delete_flag` | tinyint(1) | Soft delete flag (0=normal, 1=deleted) |
+| `tenant_id` | bigint | Parent tenant organization id |
+| `tenant_org_id` | bigint | Tenant org as top-level organization |
 
 ### Constraints
 
 ```sql
-UNIQUE(`org_code`)
-UNIQUE(`tenant_id`, `name`)
 PRIMARY KEY (`id`)
+KEY `idx_pid` (`pid`)
+KEY `idx_tenant_id` (`tenant_id`)
+KEY `idx_tenant_org_id` (`tenant_org_id`)
+KEY `idx_org_code` (`org_code`)
+```
+
+### Table Options
+
+```sql
+ENGINE=InnoDB
+AUTO_INCREMENT=1015
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci
+COMMENT='系统组织表'
 ```
 
 ## Create Node Operation
@@ -315,7 +328,94 @@ Located in `scripts/` directory:
 
 ## Configuration
 
-The skill uses database configuration for connecting to the database.
+### Database Configuration
+
+**Location:** `config/application-dev.yaml`
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://sh-cynosdbmysql-grp-mlyunquo.sqls.cdnline.cn:25133/enrollment
+    username: root
+    password: zb2014@8888
+    driver-class-name: com.mysql.cj.jdbc.Driver
+```
+
+**Schema Reference:** `src/main/resources/sql/org-mysql-schema.sql`
+
+### API Testing
+
+**Tree API Endpoint:** `/api/adm/org/tree`
+
+**Required Parameters:**
+- `appid` (optional if JWT contains appid): Application identifier for filtering organizations
+
+**Request Example:**
+```bash
+curl "http://localhost:8080/api/adm/org/tree?appid=school-app"
+```
+
+**Response Format:** `SysOrgTreeItemDTO` with nested children structure
+```json
+{
+  "code": 200,
+  "data": {
+    "children": [
+      {
+        "id": 1,
+        "pid": null,
+        "name": "华东科技大学",
+        "nodeLevel": 0,
+        "orgType": 2,
+        "type": 0,
+        "children": [...]
+      }
+    ]
+  }
+}
+```
+
+### Mock Data Reference
+
+**HTML Mock Data Location:** `edu-admin/smart-enrollment-admin.html` (lines 1038-1058)
+
+**14-Node University Structure Example:**
+```
+华东科技大学 (🏫, 6842人)
+├── 计算机学院 (💻, 1203人)
+│   ├── 软件工程 (📁, 312人)
+│   │   ├── 软件工程1班 (👥, 42人)
+│   │   └── 软件工程2班 (👥, 41人)
+│   └── 人工智能 (📁, 240人)
+│       └── 人工智能1班 (👥, 39人)
+├── 机械工程学院 (⚙️, 987人)
+├── 经济管理学院 (📈, 1456人)
+├── 外国语学院 (🌐, 834人)
+├── 医学院 (🏥, 678人)
+├── 艺术设计学院 (🎨, 542人)
+├── 法学院 (⚖️, 421人)
+└── 理学院 (🔬, 721人)
+```
+
+**Mock JSON Example:** See `/mock-org-tree.json` in project root for complete 14-node structure with:
+- id (1-14)
+- pid (parent relationships)
+- org_code (unique identifiers)
+- node_level (0-3)
+- left_num/right_num (nested set values)
+- appid ('school-app' for all nodes)
+
+**Import Mock Data:**
+```bash
+# Generate SQL from JSON
+node scripts/import-tree.js /path/to/mock-org-tree.json /path/to/insert-org.sql --mode=replace
+
+# Import SQL using chatdb skill
+/chatdb import-sql /path/to/insert-org.sql
+
+# Or execute individual INSERT statements
+python3 ~/.claude/skills/chatdb/scripts/cursor_db_cli.py execute-sql --sql "INSERT INTO ..."
+```
 
 ## Dependencies
 

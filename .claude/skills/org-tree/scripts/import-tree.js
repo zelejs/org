@@ -63,9 +63,9 @@ class OrgTreeImporter {
    */
   generateInsert(record) {
     const fields = [
-      'id', 'pid', 'org_code', 'name', 'full_name',
-      'node_level', 'left_num', 'right_num', 'org_type',
-      'status', 'b_type', 'note', 'icon'
+      'id', 'pid', 'name', 'full_name', 'org_code',
+      'appid', 'node_level', 'left_num', 'right_num',
+      'note', 'status', 'org_type', 'b_type', 'icon'
     ];
 
     const values = fields.map(field => {
