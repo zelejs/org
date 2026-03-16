@@ -66,6 +66,9 @@ public class OrgEndpoint {
             @RequestBody SysUserOrgRequest entity) {
         entity.setPid(id);
         Long orgId = JWTKit.getOrgId();
+        if (orgId == null) {
+            return ErrorTip.create(-1, "用户未登录");
+        }
         // 获取父组织 并使用继承的租户组织id
         SysOrg sysOrg = sysOrgMapper.findById(id);
         if(sysOrg == null) {
@@ -93,7 +96,11 @@ public class OrgEndpoint {
     public Tip deleteNode(
             @Parameter(description = "要删除的组织ID", required = true, example = "1")
             @PathVariable Long id) {
-        return SuccessTip.create(sysOrgService.deleteNode(JWTKit.getOrgId(), id));
+        Long orgId = JWTKit.getOrgId();
+        if (orgId == null) {
+            return ErrorTip.create(-1, "用户未登录");
+        }
+        return SuccessTip.create(sysOrgService.deleteNode(orgId, id));
     }
 
     @BusinessLog(name = "组织", value = "更新组织")
@@ -112,7 +119,11 @@ public class OrgEndpoint {
             @PathVariable Long id,
             @Parameter(description = "组织更新信息", required = true)
             @RequestBody SysOrg entity) {
-        return SuccessTip.create(sysOrgService.updateNode(JWTKit.getOrgId(), id, entity));
+        Long orgId = JWTKit.getOrgId();
+        if (orgId == null) {
+            return ErrorTip.create(-1, "用户未登录");
+        }
+        return SuccessTip.create(sysOrgService.updateNode(orgId, id, entity));
     }
 
     @GetMapping("/{id}")
@@ -126,7 +137,11 @@ public class OrgEndpoint {
     public Tip getOrg(
             @Parameter(description = "组织ID", required = true, example = "1")
             @PathVariable Long id) {
-        SysOrg visibleOrg = sysOrgService.getVisibleOrg(JWTKit.getOrgId(), id);
+        Long orgId = JWTKit.getOrgId();
+        if (orgId == null) {
+            return ErrorTip.create(-1, "用户未登录");
+        }
+        SysOrg visibleOrg = sysOrgService.getVisibleOrg(orgId, id);
         if (visibleOrg == null) {
             return ErrorTip.create(-1,"组织不存在");
         }
@@ -158,10 +173,10 @@ public class OrgEndpoint {
     @Operation(summary = "获取组织树形结构",
             description = "以树形结构返回组织列表。每个组织节点包含其子组织列表，" +
                     "支持按组织名称进行搜索过滤。返回的树形结构从当前用户的组织开始。" +
-                    "appid参数仅在JWT中appid为null时生效。")
+                    "appid参数仅在JWT中appid为null时生效。" +
+                    "当JWT中appid和orgId都为null时，默认使用orgId=1查询所有组织。")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "查询成功", content = @Content(schema = @Schema(implementation = Tip.class))),
-            @ApiResponse(responseCode = "400", description = "请求参数错误：JWTKit.getOrgId()=null 且 appid=null")
+            @ApiResponse(responseCode = "200", description = "查询成功", content = @Content(schema = @Schema(implementation = Tip.class)))
     })
     public Tip treeSysOrg(
             @Parameter(description = "搜索关键词（组织名称，支持模糊搜索）", example = "技术")
@@ -174,12 +189,14 @@ public class OrgEndpoint {
 
         // 优先使用JWT中的appid，如果JWT中appid为null才使用参数中的appid
         String finalAppid = (jwtAppid != null && !jwtAppid.isEmpty()) ? jwtAppid : appid;
-        Long orgId = jwtOrgId;
 
-        // 如果JWT返回的orgId为null且最终appid也为null，抛异常
-        if (orgId == null && (finalAppid == null || finalAppid.isEmpty())) {
-            throw new com.jfeat.crud.base.exception.BusinessException(-1,
-                "JWTKit.getOrgId()=null && appid=null");
+        // 确定orgId：如果JWT返回的orgId为null且最终appid也为null，设置默认值orgId=1
+        final Long orgId;
+        if (jwtOrgId == null && (finalAppid == null || finalAppid.isEmpty())) {
+            logger.debug("JWTKit.getOrgId()=null && appid=null, setting default orgId=1");
+            orgId = 1L;
+        } else {
+            orgId = jwtOrgId;
         }
 
         // 创建查询参数，设置appid
