@@ -1,0 +1,17 @@
+@endpoint=http://localhost:8082
+
+### health
+GET {{endpoint}}/health
+
+### org tree
+GET {{endpoint}}/api/adm/org/tree?appid=1
+x-org-id: 1
+x-tenant-org-id: 1
+x-appid: 1
+
+### page org
+GET {{endpoint}}/api/adm/org?pageNum=1&pageSize=10
+
+### get org
+GET {{endpoint}}/api/adm/org/1
+
