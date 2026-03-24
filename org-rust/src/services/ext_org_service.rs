@@ -3,28 +3,28 @@ use sqlx::{PgPool, Row};
 use crate::models::{
     error::{AppError, AppResult},
     org::CreateOrgRequest,
-    party_org::{PartyOrgRelation, PartyOrgRequest},
+    ext_org::{ExtOrgRelation, ExtOrgRequest},
 };
 use crate::services::{OrgService, RequestContext};
 
 #[derive(Clone)]
-pub struct PartyOrgService {
+pub struct ExtOrgService {
     pool: PgPool,
     org_service: OrgService,
 }
 
-impl PartyOrgService {
+impl ExtOrgService {
     pub fn new(pool: PgPool, org_service: OrgService) -> Self {
         Self { pool, org_service }
     }
 
-    pub async fn add(&self, req: PartyOrgRequest) -> AppResult<i64> {
+    pub async fn add(&self, req: ExtOrgRequest) -> AppResult<i64> {
         if req.id == 0 || req.parent_id == 0 {
-            return Err(AppError::BadRequest("党组织id或父id不能为空".to_string()));
+            return Err(AppError::BadRequest("扩展组织id或父id不能为空".to_string()));
         }
 
         let parent_org_id: Option<i64> = sqlx::query_scalar(
-            "SELECT id FROM t_sys_org_ext WHERE party_org_id = $1 AND delete_flag = 0",
+            "SELECT id FROM t_sys_org_ext WHERE ext_org_id = $1 AND delete_flag = 0",
         )
         .bind(req.parent_id)
         .fetch_optional(&self.pool)
@@ -32,17 +32,17 @@ impl PartyOrgService {
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
         let parent_org_id =
-            parent_org_id.ok_or_else(|| AppError::BadRequest("父党组织不存在".to_string()))?;
+            parent_org_id.ok_or_else(|| AppError::BadRequest("父扩展组织不存在".to_string()))?;
 
         let exists: Option<i64> = sqlx::query_scalar(
-            "SELECT id FROM t_sys_org_ext WHERE party_org_id = $1 AND delete_flag = 0",
+            "SELECT id FROM t_sys_org_ext WHERE ext_org_id = $1 AND delete_flag = 0",
         )
         .bind(req.id)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
         if exists.is_some() {
-            return Err(AppError::BadRequest("党组织已存在，不可重复创建".to_string()));
+            return Err(AppError::BadRequest("扩展组织已存在，不可重复创建".to_string()));
         }
 
         let new_org_id = self
@@ -65,7 +65,7 @@ impl PartyOrgService {
             .await?;
 
         sqlx::query(
-            "INSERT INTO t_sys_org_ext (id, party_org_id, party_org_type, delete_flag, create_time, update_time) VALUES ($1, $2, $3, 0, NOW(), NOW())",
+            "INSERT INTO t_sys_org_ext (id, ext_org_id, ext_org_type, delete_flag, create_time, update_time) VALUES ($1, $2, $3, 0, NOW(), NOW())",
         )
         .bind(new_org_id)
         .bind(req.id)
@@ -77,15 +77,15 @@ impl PartyOrgService {
         Ok(new_org_id)
     }
 
-    pub async fn delete(&self, party_org_id: i64) -> AppResult<i64> {
+    pub async fn delete(&self, ext_org_id: i64) -> AppResult<i64> {
         let org_id: Option<i64> = sqlx::query_scalar(
-            "SELECT id FROM t_sys_org_ext WHERE party_org_id = $1 AND delete_flag = 0",
+            "SELECT id FROM t_sys_org_ext WHERE ext_org_id = $1 AND delete_flag = 0",
         )
-        .bind(party_org_id)
+        .bind(ext_org_id)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
-        let org_id = org_id.ok_or_else(|| AppError::NotFound("党组织不存在".to_string()))?;
+        let org_id = org_id.ok_or_else(|| AppError::NotFound("扩展组织不存在".to_string()))?;
 
         sqlx::query("UPDATE t_sys_org_ext SET delete_flag = 1, update_time = NOW() WHERE id = $1")
             .bind(org_id)
@@ -96,17 +96,17 @@ impl PartyOrgService {
         self.org_service.delete_node(org_id).await
     }
 
-    pub async fn update(&self, req: PartyOrgRequest) -> AppResult<i64> {
+    pub async fn update(&self, req: ExtOrgRequest) -> AppResult<i64> {
         let org_id: Option<i64> = sqlx::query_scalar(
-            "SELECT id FROM t_sys_org_ext WHERE party_org_id = $1 AND delete_flag = 0",
+            "SELECT id FROM t_sys_org_ext WHERE ext_org_id = $1 AND delete_flag = 0",
         )
         .bind(req.id)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
-        let org_id = org_id.ok_or_else(|| AppError::NotFound("党组织不存在".to_string()))?;
+        let org_id = org_id.ok_or_else(|| AppError::NotFound("扩展组织不存在".to_string()))?;
 
-        sqlx::query("UPDATE t_sys_org_ext SET party_org_type = $1, update_time = NOW() WHERE id = $2")
+        sqlx::query("UPDATE t_sys_org_ext SET ext_org_type = $1, update_time = NOW() WHERE id = $2")
             .bind(req.r#type)
             .bind(org_id)
             .execute(&self.pool)
@@ -127,16 +127,16 @@ impl PartyOrgService {
         Ok(org_id)
     }
 
-    pub async fn list(&self) -> AppResult<Vec<PartyOrgRelation>> {
+    pub async fn list(&self) -> AppResult<Vec<ExtOrgRelation>> {
         let rows = sqlx::query(
             r#"
             SELECT
-              ext.party_org_id AS id,
-              parent_ext.party_org_id AS parent_id,
+              ext.ext_org_id AS id,
+              parent_ext.ext_org_id AS parent_id,
               org.full_name AS name,
               org.name AS short_name,
               org.org_code AS org_num,
-              ext.party_org_type AS type,
+              ext.ext_org_type AS type,
               org.id AS org_id,
               org.tenant_org_id AS tenant_org_id,
               (org.id = org.tenant_org_id) AS tenant_flag
@@ -153,7 +153,7 @@ impl PartyOrgService {
 
         let result = rows
             .into_iter()
-            .map(|row| PartyOrgRelation {
+            .map(|row| ExtOrgRelation {
                 id: row.get("id"),
                 parent_id: row.try_get("parent_id").ok(),
                 name: row.try_get("name").ok(),

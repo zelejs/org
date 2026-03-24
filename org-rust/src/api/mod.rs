@@ -5,7 +5,7 @@ use axum::{
     Router,
 };
 
-use crate::handlers::{health, org, party_org};
+use crate::handlers::{ext_org, health, org};
 use crate::api::state::AppState;
 
 pub fn create_router(state: AppState) -> Router {
@@ -17,17 +17,17 @@ pub fn create_router(state: AppState) -> Router {
         .route("/:id", delete(org::delete_org))
         .route("/:id/children", post(org::create_org_child));
 
-    let party_router = Router::new()
-        .route("/add", post(party_org::add))
-        .route("/delete", delete(party_org::delete))
-        .route("/update", put(party_org::update))
-        .route("/list", get(party_org::list))
-        .route("/sync", post(party_org::sync));
+    let ext_org_router = Router::new()
+        .route("/add", post(ext_org::add))
+        .route("/delete", delete(ext_org::delete))
+        .route("/update", put(ext_org::update))
+        .route("/list", get(ext_org::list))
+        .route("/sync", post(ext_org::sync));
 
     Router::new()
         .route("/health", get(health::health_check))
         .nest("/api/adm/org", org_router)
-        .nest("/api/adm/sys/partyOrg", party_router)
+        .nest("/api/adm/sys/extOrg", ext_org_router)
         .with_state(state)
 }
 

@@ -204,36 +204,36 @@ curl -s -X DELETE "http://localhost:8082/api/adm/org/2" | jq .
 
 ---
 
-## Test Suite 7: Party Organization Operations
+## Test Suite 7: Extended Organization Operations
 
-### Test 7.1: List Party Organizations
+### Test 7.1: List Extended Organizations
 ```bash
-curl -s "http://localhost:8082/api/adm/sys/partyOrg/list" | jq .
+curl -s "http://localhost:8082/api/adm/sys/extOrg/list" | jq .
 ```
-**Expected**: Empty list or existing party orgs
+**Expected**: Empty list or existing extended orgs
 
-### Test 7.2: Sync Party Organizations
+### Test 7.2: Sync Extended Organizations
 ```bash
-curl -s -X POST "http://localhost:8082/api/adm/sys/partyOrg/sync" | jq .
+curl -s -X POST "http://localhost:8082/api/adm/sys/extOrg/sync" | jq .
 ```
 **Expected**: `{"code": 200, "data": 0}`
 
-### Test 7.3: Add Party Organization (Requires Existing Parent)
+### Test 7.3: Add Extended Organization (Requires Existing Parent)
 ```bash
 # First, create a regular org to use as parent
 NEW_ORG=$(curl -s -X POST "http://localhost:8082/api/adm/org/3/children" \
   -H "Content-Type: application/json" \
-  -d '{"name": "Test Party Parent", "fullName": "Test Party Parent", "orgCode": "TPP001"}' | jq -r '.data')
+  -d '{"name": "Test Ext Parent", "fullName": "Test Ext Parent", "orgCode": "TEP001"}' | jq -r '.data')
 
-# Then add party org relationship
-curl -s -X POST "http://localhost:8082/api/adm/sys/partyOrg/add" \
+# Then add ext org relationship
+curl -s -X POST "http://localhost:8082/api/adm/sys/extOrg/add" \
   -H "Content-Type: application/json" \
   -d "{
     \"id\": 1001,
     \"parentId\": ${NEW_ORG},
-    \"name\": \"Test Party Org\",
-    \"shortName\": \"Test Party\",
-    \"orgNum\": \"PARTY001\",
+    \"name\": \"Test Ext Org\",
+    \"shortName\": \"Test Ext\",
+    \"orgNum\": \"EXT001\",
     \"type\": 1
   }" | jq .
 ```
@@ -317,7 +317,7 @@ sqlx migrate run --database-url "postgresql://postgres:postgres@192.168.3.100:54
 - [ ] Suite 4: Update Operations
 - [ ] Suite 5: Query After Updates
 - [ ] Suite 6: Delete Operations (Complete Removal)
-- [ ] Suite 7: Party Organization Operations
+- [ ] Suite 7: Extended Organization Operations
 - [ ] Suite 8: Edge Cases
 - [ ] Suite 9: Nested Set Verification
 - [ ] Cleanup
@@ -333,7 +333,7 @@ sqlx migrate run --database-url "postgresql://postgres:postgres@192.168.3.100:54
 | Create Operations | 4 | ✅ Pass (1 expected fail) |
 | Update Operations | 3 | ✅ Pass (1 expected fail) |
 | Delete Operations | 6 | ✅ Pass (2 expected fails) |
-| Party Org Operations | 3 | ✅ Pass |
+| Ext Org Operations | 3 | ✅ Pass |
 | Edge Cases | 4 | ✅ Pass (all expected fails) |
 | Verification | 2 | ✅ Pass |
 

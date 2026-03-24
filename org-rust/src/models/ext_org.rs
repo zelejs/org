@@ -3,7 +3,7 @@ use sqlx::FromRow;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PartyOrgRequest {
+pub struct ExtOrgRequest {
     pub id: i64,
     pub parent_id: i64,
     pub name: String,
@@ -14,7 +14,7 @@ pub struct PartyOrgRequest {
 
 #[derive(Debug, Clone, Serialize, FromRow)]
 #[serde(rename_all = "camelCase")]
-pub struct PartyOrgRelation {
+pub struct ExtOrgRelation {
     pub id: i64,
     pub parent_id: Option<i64>,
     pub name: Option<String>,

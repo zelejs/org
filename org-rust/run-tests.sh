@@ -174,15 +174,15 @@ test_result "Delete Engineering with children (should fail)" "有子组织" "$DE
 echo ""
 
 # ============================================
-# Suite 7: Party Organization Operations
+# Suite 7: Extended Organization Operations
 # ============================================
-echo "=== Suite 7: Party Organization Operations ==="
+echo "=== Suite 7: Extended Organization Operations ==="
 
-PARTY_LIST=$(curl -s "$BASE_URL/api/adm/sys/partyOrg/list")
-test_result "Party Org List" "200" "$PARTY_LIST"
+EXT_LIST=$(curl -s "$BASE_URL/api/adm/sys/extOrg/list")
+test_result "Ext Org List" "200" "$EXT_LIST"
 
-PARTY_SYNC=$(curl -s -X POST "$BASE_URL/api/adm/sys/partyOrg/sync")
-test_result "Party Org Sync" "200" "$PARTY_SYNC"
+EXT_SYNC=$(curl -s -X POST "$BASE_URL/api/adm/sys/extOrg/sync")
+test_result "Ext Org Sync" "200" "$EXT_SYNC"
 
 echo ""
 

@@ -1,5 +1,5 @@
 pub mod error;
+pub mod ext_org;
 pub mod org;
-pub mod party_org;
 pub mod response;
 

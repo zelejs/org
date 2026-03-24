@@ -25,11 +25,11 @@ cargo run
 - `GET /api/adm/org/:id`
 - `GET /api/adm/org`
 - `GET /api/adm/org/tree`
-- `POST /api/adm/sys/partyOrg/add`
-- `DELETE /api/adm/sys/partyOrg/delete?id=...`
-- `PUT /api/adm/sys/partyOrg/update`
-- `GET /api/adm/sys/partyOrg/list`
-- `POST /api/adm/sys/partyOrg/sync`
+- `POST /api/adm/sys/extOrg/add`
+- `DELETE /api/adm/sys/extOrg/delete?id=...`
+- `PUT /api/adm/sys/extOrg/update`
+- `GET /api/adm/sys/extOrg/list`
+- `POST /api/adm/sys/extOrg/sync`
 
 ## 鉴权上下文
 

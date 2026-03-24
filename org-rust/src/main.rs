@@ -2,7 +2,7 @@ use std::{net::SocketAddr, sync::Arc};
 
 use org_rust::{
     api::{self, state::AppState},
-    services::{OrgService, PartyOrgService},
+    services::{ExtOrgService, OrgService},
 };
 use sqlx::postgres::PgPoolOptions;
 use tracing::info;
@@ -30,12 +30,12 @@ async fn main() -> anyhow::Result<()> {
         .await?;
 
     let org_service = OrgService::new(pool.clone());
-    let party_service = PartyOrgService::new(pool.clone(), org_service.clone());
+    let ext_org_service = ExtOrgService::new(pool.clone(), org_service.clone());
 
     let state = AppState {
         pool: pool.clone(),
         org_service: Arc::new(org_service),
-        party_org_service: Arc::new(party_service),
+        ext_org_service: Arc::new(ext_org_service),
     };
     let app = api::create_router(state).layer(
         tower_http::cors::CorsLayer::new()
