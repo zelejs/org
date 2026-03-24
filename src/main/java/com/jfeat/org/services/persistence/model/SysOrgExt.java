@@ -17,8 +17,8 @@ public class SysOrgExt extends Model<SysOrgExt> {
     @TableId(value = "id")
     private Long id;
 
-    @TableField("party_org_id")
-    private Long partyOrgId;
+    @TableField("ext_org_id")
+    private Long extOrgId;
 
     @TableField("create_time")
     private Date createTime;
@@ -29,8 +29,8 @@ public class SysOrgExt extends Model<SysOrgExt> {
     @TableField("delete_flag")
     private Integer deleteFlag;
 
-    @TableField("party_org_type")
-    private Integer partyOrgType;
+    @TableField("ext_org_type")
+    private Integer extOrgType;
 
     @Override
     public Serializable pkVal() {
@@ -45,12 +45,12 @@ public class SysOrgExt extends Model<SysOrgExt> {
         this.id = id;
     }
 
-    public Long getPartyOrgId() {
-        return partyOrgId;
+    public Long getExtOrgId() {
+        return extOrgId;
     }
 
-    public void setPartyOrgId(Long partyOrgId) {
-        this.partyOrgId = partyOrgId;
+    public void setExtOrgId(Long extOrgId) {
+        this.extOrgId = extOrgId;
     }
 
     public Date getCreateTime() {
@@ -77,12 +77,12 @@ public class SysOrgExt extends Model<SysOrgExt> {
         this.deleteFlag = deleteFlag;
     }
 
-    public Integer getPartyOrgType() {
-        return partyOrgType;
+    public Integer getExtOrgType() {
+        return extOrgType;
     }
 
-    public void setPartyOrgType(Integer partyOrgType) {
-        this.partyOrgType = partyOrgType;
+    public void setExtOrgType(Integer extOrgType) {
+        this.extOrgType = extOrgType;
     }
 }
 

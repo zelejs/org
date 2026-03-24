@@ -16,10 +16,10 @@ public interface SysOrgExtMapper extends BaseMapper<SysOrgExt>  {
      */
     SysOrgExt findById(@Param("id") Long id);
     /**
-     * 根据党组织 ID 查询组织扩展信息
+     * 根据扩展组织 ID 查询组织扩展信息
      *
-     * @param partyOrgId 党组织 ID
+     * @param extOrgId 扩展组织 ID
      * @return 组织扩展信息对象
      */
-    SysOrgExt findByPartyId(@Param("partyOrgId") Long partyOrgId);
+    SysOrgExt findByExtOrgId(@Param("extOrgId") Long extOrgId);
 }

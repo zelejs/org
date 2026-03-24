@@ -40,11 +40,11 @@ public interface SysOrgService {
 
     SysOrg getByOrgCode(String orgCode);
 
-    Long partyAdd(PartyOrgDTO partyOrgDTO);
+    Long extAdd(ExtOrgDTO extOrgDTO);
 
-    Long partyDelete(Long id);
+    Long extDelete(Long id);
 
-    Long partyUpdate(PartyOrgDTO partyOrgDTO);
+    Long extUpdate(ExtOrgDTO extOrgDTO);
 
     Long sync();
 
@@ -55,7 +55,7 @@ public interface SysOrgService {
      */
     List<SysOrg> listByOrgIdList(List<Long> orgIdList);
 
-    List<PartyOrgRelationDTO> partyList();
+    List<ExtOrgRelationDTO> extList();
 
-    SysOrgExtDTO getSysOrgExt(Long orgId, Long partyOrgId);
+    SysOrgExtDTO getSysOrgExt(Long orgId, Long extOrgId);
 }

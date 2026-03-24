@@ -369,29 +369,29 @@ public class SysOrgServiceImpl implements SysOrgService {
         return sysOrgMapper.findOrgByCode(orgCode);
     }
 
-    private void checkZeroOrgId(PartyOrgDTO partyOrgDTO) {
-        if(partyOrgDTO.getId() == null || partyOrgDTO.getId().equals(0L)) {
-            throw new BusinessException(-1, "党组织id不能为空");
+    private void checkZeroOrgId(ExtOrgDTO extOrgDTO) {
+        if(extOrgDTO.getId() == null || extOrgDTO.getId().equals(0L)) {
+            throw new BusinessException(-1, "扩展组织id不能为空");
         }
-        if(partyOrgDTO.getParentId() == null || partyOrgDTO.getParentId().equals(0L)) {
-            throw new BusinessException(-1, "党父组织id不能为空");
+        if(extOrgDTO.getParentId() == null || extOrgDTO.getParentId().equals(0L)) {
+            throw new BusinessException(-1, "扩展父组织id不能为空");
         }
     }
     @Override
     @Transactional
-    public Long partyAdd(PartyOrgDTO partyOrgDTO) {
-        logger.info("partyAdd artyOrgDTO:" + JSONObject.toJSONString(partyOrgDTO));
-        checkZeroOrgId(partyOrgDTO);
+    public Long extAdd(ExtOrgDTO extOrgDTO) {
+        logger.info("extAdd extOrgDTO:" + JSONObject.toJSONString(extOrgDTO));
+        checkZeroOrgId(extOrgDTO);
 
-        // 通过党父组织id获取组织
-        SysOrgExt sysOrgExtParent = sysOrgExtMapper.findByPartyId(partyOrgDTO.getParentId());
+        // 通过扩展父组织id获取组织
+        SysOrgExt sysOrgExtParent = sysOrgExtMapper.findByExtOrgId(extOrgDTO.getParentId());
         if(sysOrgExtParent == null) {
-            throw new BusinessException(-1, "父党组织不存在");
+            throw new BusinessException(-1, "父扩展组织不存在");
         }
         // 判断组织是否存在
-        SysOrgExt sysOrgExt = sysOrgExtMapper.findByPartyId(partyOrgDTO.getId());
+        SysOrgExt sysOrgExt = sysOrgExtMapper.findByExtOrgId(extOrgDTO.getId());
         if(sysOrgExt != null) {
-            throw new BusinessException(-1, "党组织已存在，不可重复创建");
+            throw new BusinessException(-1, "扩展组织已存在，不可重复创建");
         }
 
         SysOrg sysOrgParent = sysOrgMapper.findById(sysOrgExtParent.getId());
@@ -401,9 +401,9 @@ public class SysOrgServiceImpl implements SysOrgService {
 
         SysOrg sysOrg = new SysOrg();
         sysOrg.setPid(sysOrgExtParent.getId());
-        sysOrg.setName(partyOrgDTO.getShortName());
-        sysOrg.setFullName(partyOrgDTO.getName());
-        sysOrg.setOrgCode(partyOrgDTO.getOrgNum());
+        sysOrg.setName(extOrgDTO.getShortName());
+        sysOrg.setFullName(extOrgDTO.getName());
+        sysOrg.setOrgCode(extOrgDTO.getOrgNum());
         sysOrg.setOrgType(OrganizationTypeConstants.COMPANY);
         sysOrg.setTenantOrgId(sysOrgParent.getTenantOrgId());
         sysOrg.setTenantId(sysOrgParent.getTenantId());
@@ -411,8 +411,8 @@ public class SysOrgServiceImpl implements SysOrgService {
 
         SysOrgExt newSysOrgExt = new SysOrgExt();
         newSysOrgExt.setId(newOrgId);
-        newSysOrgExt.setPartyOrgId(partyOrgDTO.getId());
-        newSysOrgExt.setPartyOrgType(partyOrgDTO.getType());
+        newSysOrgExt.setExtOrgId(extOrgDTO.getId());
+        newSysOrgExt.setExtOrgType(extOrgDTO.getType());
         sysOrgExtMapper.insert(newSysOrgExt);
 
        return newOrgId;
@@ -420,10 +420,10 @@ public class SysOrgServiceImpl implements SysOrgService {
 
     @Override
     @Transactional
-    public Long partyDelete(Long id) {
-        SysOrgExt sysOrgExt = sysOrgExtMapper.findByPartyId(id);
+    public Long extDelete(Long id) {
+        SysOrgExt sysOrgExt = sysOrgExtMapper.findByExtOrgId(id);
         if(sysOrgExt == null) {
-            throw new BusinessException(-1, "党组织不存在");
+            throw new BusinessException(-1, "扩展组织不存在");
         }
 
         SysOrg sysOrgParent = sysOrgMapper.findById(sysOrgExt.getId());
@@ -437,14 +437,14 @@ public class SysOrgServiceImpl implements SysOrgService {
 
     @Override
     @Transactional
-    public Long partyUpdate(PartyOrgDTO partyOrgDTO) {
-        logger.info("partyUpdate artyOrgDTO:" + JSONObject.toJSONString(partyOrgDTO));
+    public Long extUpdate(ExtOrgDTO extOrgDTO) {
+        logger.info("extUpdate extOrgDTO:" + JSONObject.toJSONString(extOrgDTO));
 
-        checkZeroOrgId(partyOrgDTO);
+        checkZeroOrgId(extOrgDTO);
         // 判断组织是否存在
-        SysOrgExt sysOrgExt = sysOrgExtMapper.findByPartyId(partyOrgDTO.getId());
+        SysOrgExt sysOrgExt = sysOrgExtMapper.findByExtOrgId(extOrgDTO.getId());
         if(sysOrgExt == null) {
-            throw new BusinessException(-1, "党组织不存在");
+            throw new BusinessException(-1, "扩展组织不存在");
         }
 
         SysOrg sysOrg = sysOrgMapper.findById(sysOrgExt.getId());
@@ -452,12 +452,12 @@ public class SysOrgServiceImpl implements SysOrgService {
             throw new BusinessException(-1, "组织不存在");
         }
 
-        sysOrgExt.setPartyOrgType(partyOrgDTO.getType());
+        sysOrgExt.setExtOrgType(extOrgDTO.getType());
         sysOrgExtMapper.updateById(sysOrgExt);
 
-        sysOrg.setName(partyOrgDTO.getShortName());
-        sysOrg.setFullName(partyOrgDTO.getName());
-        sysOrg.setOrgCode(partyOrgDTO.getOrgNum());
+        sysOrg.setName(extOrgDTO.getShortName());
+        sysOrg.setFullName(extOrgDTO.getName());
+        sysOrg.setOrgCode(extOrgDTO.getOrgNum());
         return updateNode(sysOrg.getPid(),sysOrg.getId(), sysOrg);
     }
 
@@ -483,25 +483,25 @@ public class SysOrgServiceImpl implements SysOrgService {
         if (dataArray != null) {
             for (int i = 0; i < dataArray.size(); i++) {
                 JSONObject orgObject = dataArray.getJSONObject(i);
-                PartyOrgDTO partyOrgDTO = new PartyOrgDTO();
-                partyOrgDTO.setId(orgObject.getLong("id"));
-                partyOrgDTO.setParentId(orgObject.getLong("parentId"));
-                partyOrgDTO.setName(orgObject.getString("name"));
-                partyOrgDTO.setShortName(orgObject.getString("shortName"));
-                partyOrgDTO.setOrgNum(orgObject.getString("orgNum"));
-//                partyOrgDTO.setType(orgObject.getInteger("type"));
+                ExtOrgDTO extOrgDTO = new ExtOrgDTO();
+                extOrgDTO.setId(orgObject.getLong("id"));
+                extOrgDTO.setParentId(orgObject.getLong("parentId"));
+                extOrgDTO.setName(orgObject.getString("name"));
+                extOrgDTO.setShortName(orgObject.getString("shortName"));
+                extOrgDTO.setOrgNum(orgObject.getString("orgNum"));
+//                extOrgDTO.setType(orgObject.getInteger("type"));
                 // 检查组织是否已存在
-                SysOrgExt existingOrg = sysOrgExtMapper.findByPartyId(partyOrgDTO.getId());
+                SysOrgExt existingOrg = sysOrgExtMapper.findByExtOrgId(extOrgDTO.getId());
                 if (existingOrg != null) {
-                    logger.info("组织已存在，执行更新操作 {}", JSON.toJSONString(partyOrgDTO));
+                    logger.info("组织已存在，执行更新操作 {}", JSON.toJSONString(extOrgDTO));
                     // 如果存在，调用更新方法
-                    partyUpdate(partyOrgDTO);
+                    extUpdate(extOrgDTO);
                 } else {
                     // 如果不存在，调用添加方法
-                    SysOrgExt parant = sysOrgExtMapper.findByPartyId(partyOrgDTO.getParentId());
+                    SysOrgExt parant = sysOrgExtMapper.findByExtOrgId(extOrgDTO.getParentId());
                     if(parant != null) {
-                        logger.info("组织不存在，执行新增操作 {}", JSON.toJSONString(partyOrgDTO));
-                        partyAdd(partyOrgDTO);
+                        logger.info("组织不存在，执行新增操作 {}", JSON.toJSONString(extOrgDTO));
+                        extAdd(extOrgDTO);
                     }
 
                 }
@@ -538,7 +538,7 @@ public class SysOrgServiceImpl implements SysOrgService {
     }
 
     @Override
-    public List<PartyOrgRelationDTO> partyList() {
+    public List<ExtOrgRelationDTO> extList() {
         // 调整组织
         LambdaQueryWrapper<SysOrg> sysOrgLambdaQueryWrapper = new LambdaQueryWrapper<>();
         sysOrgLambdaQueryWrapper.in(SysOrg::getDeleteFlag, false);
@@ -550,42 +550,42 @@ public class SysOrgServiceImpl implements SysOrgService {
         sysOrgExtLambdaQueryWrapper.in(SysOrgExt::getDeleteFlag, false);
         List<SysOrgExt> sysOrgExts = sysOrgExtMapper.selectList(sysOrgExtLambdaQueryWrapper);
         // 列表转map
-        Map<Long, SysOrgExt> sysOrgExtMap = sysOrgExts.stream().collect(Collectors.toMap(SysOrgExt::getPartyOrgId, sysOrgExt -> sysOrgExt));
+        Map<Long, SysOrgExt> sysOrgExtMap = sysOrgExts.stream().collect(Collectors.toMap(SysOrgExt::getExtOrgId, sysOrgExt -> sysOrgExt));
 
-        List<PartyOrgRelationDTO> result = new ArrayList<>();
+        List<ExtOrgRelationDTO> result = new ArrayList<>();
         // 遍历
         for (SysOrgExt sysOrgExt : sysOrgExts) {
-            PartyOrgRelationDTO partyOrgRelationDTO = new PartyOrgRelationDTO();
-            partyOrgRelationDTO.setId(sysOrgExt.getPartyOrgId());
-            partyOrgRelationDTO.setType(sysOrgExt.getPartyOrgType());
+            ExtOrgRelationDTO extOrgRelationDTO = new ExtOrgRelationDTO();
+            extOrgRelationDTO.setId(sysOrgExt.getExtOrgId());
+            extOrgRelationDTO.setType(sysOrgExt.getExtOrgType());
             SysOrg orDefault = sysOrgMap.getOrDefault(sysOrgExt.getId(), null);
             if(orDefault != null) {
-                partyOrgRelationDTO.setName(orDefault.getFullName());
-                partyOrgRelationDTO.setShortName(orDefault.getName());
-                partyOrgRelationDTO.setOrgNum(orDefault.getOrgCode());
-                partyOrgRelationDTO.setOrgId(orDefault.getId());
-                partyOrgRelationDTO.setTenantOrgId(orDefault.getTenantOrgId());
-                partyOrgRelationDTO.setTenantFlag(orDefault.getId().equals(orDefault.getTenantOrgId()));
+                extOrgRelationDTO.setName(orDefault.getFullName());
+                extOrgRelationDTO.setShortName(orDefault.getName());
+                extOrgRelationDTO.setOrgNum(orDefault.getOrgCode());
+                extOrgRelationDTO.setOrgId(orDefault.getId());
+                extOrgRelationDTO.setTenantOrgId(orDefault.getTenantOrgId());
+                extOrgRelationDTO.setTenantFlag(orDefault.getId().equals(orDefault.getTenantOrgId()));
                 if (orDefault.getPid() != null && sysOrgExtMap.containsKey(orDefault.getPid())) {
                     SysOrgExt parent = sysOrgExtMap.get(orDefault.getPid());
-                    partyOrgRelationDTO.setParentId(parent.getPartyOrgId());
+                    extOrgRelationDTO.setParentId(parent.getExtOrgId());
                 }
             }
-            result.add(partyOrgRelationDTO);
+            result.add(extOrgRelationDTO);
         }
         return result;
     }
 
     @Override
-    public SysOrgExtDTO getSysOrgExt(Long orgId, Long partyOrgId) {
-        if(orgId == null && partyOrgId == null) {
-            throw new BusinessException(-1, "组织id和党组织id不能同时为空");
+    public SysOrgExtDTO getSysOrgExt(Long orgId, Long extOrgId) {
+        if(orgId == null && extOrgId == null) {
+            throw new BusinessException(-1, "组织id和扩展组织id不能同时为空");
         }
         SysOrgExt sysOrgExt = null;
         if(orgId != null) {
             sysOrgExt = sysOrgExtMapper.findById(orgId);
         } else  {
-            sysOrgExt = sysOrgExtMapper.findByPartyId(partyOrgId);
+            sysOrgExt = sysOrgExtMapper.findByExtOrgId(extOrgId);
         }
 
         if(sysOrgExt == null) {
@@ -594,7 +594,7 @@ public class SysOrgServiceImpl implements SysOrgService {
 
         SysOrgExtDTO sysOrgExtDTO = new SysOrgExtDTO();
         sysOrgExtDTO.setOrgId(sysOrgExt.getId());
-        sysOrgExtDTO.setPartyOrgId(sysOrgExt.getPartyOrgId());
+        sysOrgExtDTO.setExtOrgId(sysOrgExt.getExtOrgId());
         return sysOrgExtDTO;
     }
 }

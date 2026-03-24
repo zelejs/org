@@ -10,5 +10,5 @@ import lombok.Data;
 public class SysOrgExtDTO {
     private Long orgId;
 
-    private Long partyOrgId;
+    private Long extOrgId;
 }
