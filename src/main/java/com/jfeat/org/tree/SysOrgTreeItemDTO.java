@@ -15,8 +15,6 @@ public class SysOrgTreeItemDTO extends TreeItemDTO<SysOrgTreeItemDTO> {
 
     private Integer orgType;
 
-    private Integer type;
-
     private String appid;
 
     private Long tenantId;
@@ -63,14 +61,6 @@ public class SysOrgTreeItemDTO extends TreeItemDTO<SysOrgTreeItemDTO> {
 
     public void setOrgType(Integer orgType) {
         this.orgType = orgType;
-    }
-
-    public Integer getType() {
-        return type;
-    }
-
-    public void setType(Integer type) {
-        this.type = type;
     }
 
     public String getAppid() {

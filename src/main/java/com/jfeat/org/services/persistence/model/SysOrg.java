@@ -76,14 +76,11 @@ public class SysOrg extends Model<SysOrg> {
     @TableField("update_time")
     private Date updateTime;
 
-    @TableField("org_type")
-    private Integer orgType;
-
     /**
      * 组织类型0-平台/应用,1-租户,2-分公司/学院/局,3-部门/科/村镇,4-用户组织
      */
-    @TableField("type")
-    private Integer type;
+    @TableField("org_type")
+    private Integer orgType;
 
     /**
      * 应用ID，代表最高层级组织，appid=null为默认appid
@@ -140,14 +137,6 @@ public class SysOrg extends Model<SysOrg> {
 
     public void setNeedValidate(Boolean needValidate) {
         this.needValidate = needValidate;
-    }
-
-    public Integer getType() {
-        return type;
-    }
-
-    public void setType(Integer type) {
-        this.type = type;
     }
 
     public String getAppid() {
@@ -300,7 +289,6 @@ public class SysOrg extends Model<SysOrg> {
                 ", createTime=" + createTime +
                 ", updateTime=" + updateTime +
                 ", orgType=" + orgType +
-                ", type=" + type +
                 ", appid=" + appid +
                 ", deleteFlag=" + deleteFlag +
                 ", tenantOrgId=" + tenantOrgId +

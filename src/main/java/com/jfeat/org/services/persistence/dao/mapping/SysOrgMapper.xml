@@ -26,7 +26,6 @@
         <result column="note" property="note" />
         <result column="status" property="status" />
         <result column="org_type" property="orgType" />
-        <result column="type" property="type" />
         <result column="appid" property="appid" />
         <result column="create_time" property="createTime" />
         <result column="update_time" property="updateTime" />
