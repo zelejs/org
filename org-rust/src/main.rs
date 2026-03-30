@@ -1,5 +1,5 @@
-use std::{net::SocketAddr, sync::Arc};
-use std::env;
+use std::net::SocketAddr;
+use std::sync::Arc;
 
 use clap::Parser;
 use org_rust::{
@@ -8,6 +8,20 @@ use org_rust::{
 };
 use sqlx::postgres::PgPoolOptions;
 use tracing::info;
+
+/// Org-rust HTTP server for organization tree management
+#[derive(Parser, Debug)]
+#[command(name = "org-rust")]
+#[command(about = "Organization tree management HTTP server", long_about = None)]
+struct ServerArgs {
+    /// Host to listen on
+    #[arg(long, default_value = "0.0.0.0")]
+    host: String,
+
+    /// Port to listen on
+    #[arg(long, default_value = "8082")]
+    port: u16,
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -19,30 +33,10 @@ async fn main() -> anyhow::Result<()> {
         )
         .init();
 
-    // Check if running in CLI mode
-    let args: Vec<String> = env::args().collect();
+    let args = ServerArgs::parse();
 
-    // If first argument is a known CLI command, run in CLI mode
-    let is_cli = args.len() > 1 && matches!(
-        args[1].as_str(),
-        "org" | "org-cli" | "init" | "show" | "roots" | "insert" | "remove" | "export" | "import" | "--help" | "-h"
-    );
-
-    if is_cli {
-        return run_cli().await;
-    }
-
-    // Otherwise, run in server mode (default)
-    run_server().await
-}
-
-async fn run_server() -> anyhow::Result<()> {
     let database_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgresql://postgres:postgres@127.0.0.1:5432/enrollment".to_string());
-    let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
-    let port = std::env::var("PORT")
-        .unwrap_or_else(|_| "8082".to_string())
-        .parse::<u16>()?;
 
     let pool = PgPoolOptions::new()
         .max_connections(20)
@@ -64,15 +58,10 @@ async fn run_server() -> anyhow::Result<()> {
             .allow_headers(tower_http::cors::Any),
     );
 
-    let addr: SocketAddr = format!("{host}:{port}").parse()?;
+    let addr: SocketAddr = format!("{}:{}", args.host, args.port).parse()?;
     info!("org-rust listening on {}", addr);
     info!("health: http://{}/health", addr);
     info!("org api: http://{}/api/adm/org/tree", addr);
     axum::serve(tokio::net::TcpListener::bind(addr).await?, app).await?;
     Ok(())
-}
-
-async fn run_cli() -> anyhow::Result<()> {
-    let cli = org_rust::cli::Cli::try_parse()?;
-    org_rust::cli::run(cli).await
 }

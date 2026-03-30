@@ -3,6 +3,14 @@ name = "org-rust"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "org-rust"
+path = "src/main.rs"
+
+[[bin]]
+name = "org-cli"
+path = "src/bin/org-cli.rs"
+
 [dependencies]
 axum = "0.7"
 tokio = { version = "1.35", features = ["full"] }

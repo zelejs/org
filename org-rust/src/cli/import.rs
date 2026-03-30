@@ -106,8 +106,15 @@ pub async fn handle_import(
         let mut id_map: HashMap<i64, i64> = HashMap::new();
 
         for (parent_id, child) in import_queue {
+            // Map temporary parent_id to actual database ID
+            let actual_parent_id = if parent_id == root_id {
+                root_id
+            } else {
+                *id_map.get(&parent_id).unwrap_or(&parent_id)
+            };
+
             let ctx = RequestContext {
-                org_id: Some(parent_id),
+                org_id: Some(actual_parent_id),
                 tenant_org_id: None,
                 appid: tree.appid.clone(),
             };
@@ -122,7 +129,7 @@ pub async fn handle_import(
                 level: child.level.clone(),
             };
 
-            let new_id = org_core::insert_child_org(&pool, parent_id, req, &ctx).await?;
+            let new_id = org_core::insert_child_org(&pool, actual_parent_id, req, &ctx).await?;
             id_map.insert(child.id, new_id);
             pb.inc(1);
         }
