@@ -95,6 +95,49 @@ pub enum OrgCommands {
         #[arg(long)]
         dry_run: bool,
     },
+    /// Update organization properties
+    Update {
+        /// Organization ID to update
+        org_id: i64,
+        /// Organization name
+        #[arg(long)]
+        name: Option<String>,
+        /// Organization full name
+        #[arg(long)]
+        full_name: Option<String>,
+        /// Organization code
+        #[arg(long)]
+        org_code: Option<String>,
+        /// Note
+        #[arg(long)]
+        note: Option<String>,
+        /// Organization type: 0=platform, 1=tenant, 2=branch, 3=department, 4=user
+        #[arg(long)]
+        org_type: Option<i32>,
+    },
+    /// Search organizations
+    Search {
+        /// Search term (name or org_code)
+        term: String,
+        /// Output format: json or table
+        #[arg(long, default_value = "table")]
+        format: String,
+        /// Limit results
+        #[arg(long, default_value = "20")]
+        limit: i64,
+    },
+    /// Validate tree integrity
+    Validate {
+        /// Organization ID to validate (default: validate all)
+        org_id: Option<i64>,
+    },
+    /// Move subtree to new parent
+    Move {
+        /// Organization ID to move
+        org_id: i64,
+        /// New parent organization ID
+        new_parent_id: i64,
+    },
 }
 
 mod init;
@@ -104,6 +147,10 @@ mod insert;
 mod remove;
 mod export;
 mod import;
+mod update;
+mod search;
+mod validate;
+mod r#move;
 
 pub async fn run(cli: Cli) -> anyhow::Result<()> {
     let database_url = cli.db_url.unwrap_or_else(|| {
@@ -135,5 +182,11 @@ async fn handle_org_command(cmd: OrgCommands, pool: PgPool) -> anyhow::Result<()
         Remove { org_id, force } => remove::handle_remove(pool, org_id, force).await,
         Export { org_id, output } => export::handle_export(pool, org_id, output).await,
         Import { file, dry_run } => import::handle_import(pool, file, dry_run).await,
+        Update { org_id, name, full_name, org_code, note, org_type } => {
+            update::handle_update(pool, org_id, name, full_name, org_code, note, org_type).await
+        }
+        Search { term, format, limit } => search::handle_search(pool, &term, &format, limit).await,
+        Validate { org_id } => validate::handle_validate(pool, org_id).await,
+        Move { org_id, new_parent_id } => r#move::handle_move(pool, org_id, new_parent_id).await,
     }
 }
