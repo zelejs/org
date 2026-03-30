@@ -1,4 +1,3 @@
-use rand::{distributions::Alphanumeric, Rng};
 use sqlx::{Postgres, PgPool, QueryBuilder};
 
 use crate::models::{
@@ -8,10 +7,12 @@ use crate::models::{
         UpdateOrgRequest,
     },
 };
-use crate::services::RequestContext;
+use crate::services::{
+    org_core,
+    RequestContext,
+};
 
 const ORG_TYPE_TENANT: i32 = 1;
-const SYS_ORG_ID: i64 = 1;
 
 #[derive(Clone)]
 pub struct OrgService {
@@ -23,173 +24,50 @@ impl OrgService {
         Self { pool }
     }
 
+    /// Initialize root organization
+    pub async fn init_root(
+        &self,
+        appid: Option<String>,
+        name: String,
+    ) -> AppResult<org_core::RootOrgStatus> {
+        org_core::init_root_org(&self.pool, appid, name).await
+    }
+
+    /// List all root organizations
+    pub async fn list_roots(&self) -> AppResult<Vec<org_core::RootOrgInfo>> {
+        org_core::list_all_root_orgs(&self.pool).await
+    }
+
+    /// Get root organization by appid
+    pub async fn get_root_by_appid(&self, appid: Option<&str>) -> AppResult<Option<SysOrg>> {
+        org_core::get_root_org_by_appid(&self.pool, appid).await
+    }
+
     pub async fn create_child(
         &self,
         parent_id: i64,
         req: CreateOrgRequest,
         ctx: &RequestContext,
     ) -> AppResult<i64> {
-        let parent = self
-            .get_by_id(parent_id)
-            .await?
-            .ok_or_else(|| AppError::BadRequest("父组织不存在".to_string()))?;
-
-        if parent.org_type.unwrap_or(2) <= ORG_TYPE_TENANT {
-            return Err(AppError::BadRequest(
-                "平台跟租户类型的组织不可创建".to_string(),
-            ));
-        }
-
-        let right_num = parent
-            .right_num
-            .ok_or_else(|| AppError::Internal("父组织right_num为空".to_string()))?;
-        let node_level = parent.node_level.unwrap_or(0);
-
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-
-        sqlx::query(
-            "UPDATE t_sys_org SET left_num = left_num + 2 WHERE left_num >= $1 AND delete_flag = 0",
-        )
-        .bind(right_num)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
-
-        sqlx::query(
-            "UPDATE t_sys_org SET right_num = right_num + 2 WHERE right_num >= $1 AND delete_flag = 0",
-        )
-        .bind(right_num)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
-
-        let org_code = if let Some(code) = req.org_code {
-            code
-        } else {
-            Self::random_org_code()
-        };
-
-        let org_type = req.org_type.unwrap_or(2);
-        let name = req.name;
-        let full_name = req.full_name.unwrap_or_else(|| name.clone());
-
-        let new_id: i64 = sqlx::query_scalar(
-            r#"
-            INSERT INTO t_sys_org
-            (pid, name, full_name, org_code, node_level, left_num, right_num, note, org_type, appid, tenant_id, tenant_org_id, delete_flag, create_time, update_time)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 0, NOW(), NOW())
-            RETURNING id
-            "#,
-        )
-        .bind(parent.id)
-        .bind(&name)
-        .bind(&full_name)
-        .bind(&org_code)
-        .bind(node_level + 1)
-        .bind(right_num)
-        .bind(right_num + 1)
-        .bind(&req.note)
-        .bind(org_type)
-        .bind(&parent.appid)
-        .bind(parent.tenant_id)
-        .bind(parent.tenant_org_id.or(ctx.tenant_org_id))
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
-
-        tx.commit()
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-
-        Ok(new_id)
+        org_core::insert_child_org(&self.pool, parent_id, req, ctx).await
     }
 
     pub async fn delete_node(&self, id: i64) -> AppResult<i64> {
-        let org = self
-            .get_by_id(id)
-            .await?
-            .ok_or_else(|| AppError::NotFound("组织不存在".to_string()))?;
-
-        if org.org_type.unwrap_or(2) <= ORG_TYPE_TENANT {
-            return Err(AppError::BadRequest(
-                "平台跟租户类型的组织不可删除".to_string(),
-            ));
-        }
-        if org.id == SYS_ORG_ID {
-            return Err(AppError::BadRequest("顶层组织不能删除".to_string()));
-        }
-
-        let left_num = org
-            .left_num
-            .ok_or_else(|| AppError::Internal("left_num为空".to_string()))?;
-        let right_num = org
-            .right_num
-            .ok_or_else(|| AppError::Internal("right_num为空".to_string()))?;
-
-        let descendants: i64 = sqlx::query_scalar(
-            "SELECT COUNT(1) FROM t_sys_org WHERE left_num >= $1 AND right_num <= $2 AND delete_flag = 0",
-        )
-        .bind(left_num)
-        .bind(right_num)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
-        if descendants > 1 {
-            return Err(AppError::BadRequest("有子组织，不可删除".to_string()));
-        }
-
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-
-        sqlx::query("UPDATE t_sys_org SET delete_flag = 1, update_time = NOW() WHERE id = $1")
-            .bind(id)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-
-        sqlx::query("UPDATE t_sys_org_ext SET delete_flag = 1, update_time = NOW() WHERE id = $1")
-            .bind(id)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-
-        sqlx::query("UPDATE t_sys_org SET left_num = left_num - 2 WHERE left_num > $1")
-            .bind(right_num)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-
-        sqlx::query("UPDATE t_sys_org SET right_num = right_num - 2 WHERE right_num > $1")
-            .bind(right_num)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-
-        tx.commit()
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-        Ok(id)
+        org_core::remove_org(&self.pool, id, false).await
     }
 
     pub async fn update_node(&self, id: i64, req: UpdateOrgRequest) -> AppResult<i64> {
         let existing = self
             .get_by_id(id)
             .await?
-            .ok_or_else(|| AppError::NotFound("组织不存在".to_string()))?;
+            .ok_or_else(|| AppError::NotFound("Organization does not exist".to_string()))?;
 
         if existing.org_type.unwrap_or(2) <= ORG_TYPE_TENANT
             && req.org_type.is_some()
             && req.org_type != existing.org_type
         {
             return Err(AppError::BadRequest(
-                "平台跟租户类型的组织不能修改类型".to_string(),
+                "Platform and tenant type organizations cannot change type".to_string(),
             ));
         }
         if req.pid.is_some_and(|v| Some(v) != existing.pid)
@@ -198,7 +76,7 @@ impl OrgService {
             || req.right_num.is_some_and(|v| Some(v) != existing.right_num)
         {
             return Err(AppError::BadRequest(
-                "非法数据:不能修改组织层级相关字段".to_string(),
+                "Invalid data: Cannot modify hierarchy related fields".to_string(),
             ));
         }
 
@@ -225,7 +103,7 @@ impl OrgService {
     pub async fn get_org(&self, id: i64) -> AppResult<SysOrg> {
         self.get_by_id(id)
             .await?
-            .ok_or_else(|| AppError::NotFound("组织不存在".to_string()))
+            .ok_or_else(|| AppError::NotFound("Organization does not exist".to_string()))
     }
 
     pub async fn page_orgs(&self, query: OrgListQuery) -> AppResult<PageResult<SysOrg>> {
@@ -292,8 +170,8 @@ impl OrgService {
             root_org_id
         };
 
-        let root = Self::build_tree(&mut items, selected_root)
-            .ok_or_else(|| AppError::BadRequest("找不到顶级节点".to_string()))?;
+        let root = org_core::build_tree(&mut items, selected_root)
+            .ok_or_else(|| AppError::BadRequest("Root node not found".to_string()))?;
 
         Ok(TreeTop {
             children: vec![root],
@@ -301,12 +179,7 @@ impl OrgService {
     }
 
     pub async fn get_by_id(&self, id: i64) -> AppResult<Option<SysOrg>> {
-        let result = sqlx::query_as::<_, SysOrg>("SELECT * FROM t_sys_org WHERE id = $1 AND delete_flag = 0")
-            .bind(id)
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-        Ok(result)
+        org_core::get_by_id(&self.pool, id).await
     }
 
     pub async fn list_like_name_and_org(
@@ -365,52 +238,4 @@ impl OrgService {
             .map_err(|e| AppError::Internal(e.to_string()))?;
         Ok(data)
     }
-
-    fn random_org_code() -> String {
-        rand::thread_rng()
-            .sample_iter(Alphanumeric)
-            .take(8)
-            .map(char::from)
-            .collect()
-    }
-
-    fn build_tree(items: &mut Vec<SysOrgTreeItem>, root_id: i64) -> Option<SysOrgTreeItem> {
-        use std::collections::HashMap;
-
-        // Create a map of all items by their ID
-        let mut items_map: HashMap<i64, SysOrgTreeItem> = items.drain(..).map(|item| (item.id, item)).collect();
-
-        // Build a map of parent ID to children IDs
-        let mut parent_to_children: HashMap<i64, Vec<i64>> = HashMap::new();
-
-        for (&id, item) in &items_map {
-            if let Some(pid) = item.pid {
-                parent_to_children.entry(pid).or_default().push(id);
-            }
-        }
-
-        // Recursively build the tree
-        Self::build_tree_recursive_helper(&mut items_map, &parent_to_children, root_id)
-    }
-
-    fn build_tree_recursive_helper(
-        items_map: &mut std::collections::HashMap<i64, SysOrgTreeItem>,
-        parent_to_children: &std::collections::HashMap<i64, Vec<i64>>,
-        item_id: i64,
-    ) -> Option<SysOrgTreeItem> {
-        if let Some(mut item) = items_map.remove(&item_id) {
-            // Get children IDs for this item
-            if let Some(children_ids) = parent_to_children.get(&item_id) {
-                for child_id in children_ids {
-                    if let Some(child) = Self::build_tree_recursive_helper(items_map, parent_to_children, *child_id) {
-                        item.children.push(child);
-                    }
-                }
-            }
-            Some(item)
-        } else {
-            None
-        }
-    }
 }
-

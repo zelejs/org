@@ -83,7 +83,7 @@ pub struct PageResult<T> {
     pub records: Vec<T>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SysOrgTreeItem {
     pub id: i64,
