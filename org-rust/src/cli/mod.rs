@@ -84,12 +84,16 @@ pub enum OrgCommands {
     /// Examples:
     ///   org-cli org show 1 --format json
     ///   org-cli org show 1 --format tree
+    ///   org-cli org show 1 --appid 'app-001' --format json
     Show {
         /// Organization ID
         org_id: i64,
         /// Output format: json or tree
         #[arg(long, default_value = "json")]
         format: String,
+        /// Application ID to filter organizations
+        #[arg(long)]
+        appid: Option<String>,
     },
     /// List all root organizations
     ///
@@ -291,7 +295,7 @@ use OrgCommands::*;
 async fn handle_org_command(cmd: OrgCommands, pool: PgPool) -> anyhow::Result<()> {
     match cmd {
         Init { appid, name } => init::handle_init(pool, appid, name).await,
-        Show { org_id, format } => show::handle_show(pool, org_id, &format).await,
+        Show { org_id, format, appid } => show::handle_show(pool, org_id, &format, appid).await,
         Roots { format } => roots::handle_roots(pool, &format).await,
         Insert { parent_id, name, full_name, org_code, note, org_type } => {
             insert::handle_insert(pool, parent_id, name, full_name, org_code, note, org_type).await

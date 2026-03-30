@@ -6,14 +6,15 @@ pub async fn handle_show(
     pool: PgPool,
     org_id: i64,
     format: &str,
+    appid: Option<String>,
 ) -> anyhow::Result<()> {
     match format {
         "tree" => {
-            let tree = org_core::get_subtree(&pool, org_id).await?;
+            let tree = org_core::get_subtree_with_appid(&pool, org_id, appid.as_deref()).await?;
             print_tree(&tree, 0, true);
         }
         "json" | _ => {
-            let tree = org_core::get_subtree(&pool, org_id).await?;
+            let tree = org_core::get_subtree_with_appid(&pool, org_id, appid.as_deref()).await?;
             println!("{}", serde_json::to_string_pretty(&tree)?);
         }
     }

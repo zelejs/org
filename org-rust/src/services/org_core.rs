@@ -35,6 +35,16 @@ pub async fn init_root_org(
     appid: Option<String>,
     name: String,
 ) -> AppResult<RootOrgStatus> {
+    init_root_org_with_type(pool, appid, name, 2i32).await  // Default to Branch type
+}
+
+/// Initialize root organization with specific org_type
+pub async fn init_root_org_with_type(
+    pool: &PgPool,
+    appid: Option<String>,
+    name: String,
+    org_type: i32,
+) -> AppResult<RootOrgStatus> {
     // Check if root org already exists
     if let Some(existing) = get_root_org_by_appid(pool, appid.as_deref()).await? {
         let count = count_children(pool, existing.id).await?;
@@ -59,7 +69,7 @@ pub async fn init_root_org(
     .bind(1i32)  // left_num = 1
     .bind(2i32)  // right_num = 2
     .bind(None::<String>)  // note
-    .bind(0i32)  // org_type = 0 (platform)
+    .bind(org_type)  // org_type (parameterized)
     .bind(&appid)
     .bind(None::<i64>)  // tenant_id
     .bind(None::<i64>)  // tenant_org_id
@@ -318,7 +328,16 @@ pub async fn get_subtree(
     pool: &PgPool,
     root_id: i64,
 ) -> AppResult<SysOrgTreeItem> {
-    let list = list_descendants(pool, root_id).await?;
+    get_subtree_with_appid(pool, root_id, None).await
+}
+
+/// Get subtree for a given root_id with optional appid filter
+pub async fn get_subtree_with_appid(
+    pool: &PgPool,
+    root_id: i64,
+    appid: Option<&str>,
+) -> AppResult<SysOrgTreeItem> {
+    let list = list_descendants_with_appid(pool, root_id, appid).await?;
 
     if list.is_empty() {
         return Err(AppError::NotFound("No organizations found".to_string()));
@@ -354,17 +373,44 @@ pub async fn count_children(
 
 /// Get organization by ID
 pub async fn get_by_id(pool: &PgPool, id: i64) -> AppResult<Option<SysOrg>> {
-    let result = sqlx::query_as::<_, SysOrg>("SELECT * FROM t_sys_org WHERE id = $1 AND delete_flag = 0")
-        .bind(id)
-        .fetch_optional(pool)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    get_by_id_with_appid(pool, id, None).await
+}
+
+/// Get organization by ID with optional appid filter
+pub async fn get_by_id_with_appid(
+    pool: &PgPool,
+    id: i64,
+    appid: Option<&str>,
+) -> AppResult<Option<SysOrg>> {
+    let result = if let Some(a) = appid {
+        sqlx::query_as::<_, SysOrg>("SELECT * FROM t_sys_org WHERE id = $1 AND appid = $2 AND delete_flag = 0")
+            .bind(id)
+            .bind(a)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?
+    } else {
+        sqlx::query_as::<_, SysOrg>("SELECT * FROM t_sys_org WHERE id = $1 AND delete_flag = 0")
+            .bind(id)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?
+    };
     Ok(result)
 }
 
 /// List all descendants of a given root organization
 pub async fn list_descendants(pool: &PgPool, root_id: i64) -> AppResult<Vec<SysOrg>> {
-    let root = get_by_id(pool, root_id)
+    list_descendants_with_appid(pool, root_id, None).await
+}
+
+/// List all descendants of a given root organization with optional appid filter
+pub async fn list_descendants_with_appid(
+    pool: &PgPool,
+    root_id: i64,
+    appid: Option<&str>,
+) -> AppResult<Vec<SysOrg>> {
+    let root = get_by_id_with_appid(pool, root_id, appid)
         .await?
         .ok_or_else(|| AppError::NotFound("Root organization does not exist".to_string()))?;
 
@@ -375,14 +421,26 @@ pub async fn list_descendants(pool: &PgPool, root_id: i64) -> AppResult<Vec<SysO
         .right_num
         .ok_or_else(|| AppError::Internal("root right_num is null".to_string()))?;
 
-    let data = sqlx::query_as::<_, SysOrg>(
-        "SELECT * FROM t_sys_org WHERE left_num >= $1 AND right_num <= $2 AND delete_flag = 0 ORDER BY node_level ASC"
-    )
-    .bind(left_num)
-    .bind(right_num)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| AppError::Internal(e.to_string()))?;
+    let data = if let Some(a) = appid {
+        sqlx::query_as::<_, SysOrg>(
+            "SELECT * FROM t_sys_org WHERE left_num >= $1 AND right_num <= $2 AND appid = $3 AND delete_flag = 0 ORDER BY node_level ASC"
+        )
+        .bind(left_num)
+        .bind(right_num)
+        .bind(a)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+    } else {
+        sqlx::query_as::<_, SysOrg>(
+            "SELECT * FROM t_sys_org WHERE left_num >= $1 AND right_num <= $2 AND delete_flag = 0 ORDER BY node_level ASC"
+        )
+        .bind(left_num)
+        .bind(right_num)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+    };
 
     Ok(data)
 }
