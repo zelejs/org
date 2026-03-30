@@ -18,6 +18,7 @@ pub struct SysOrg {
     pub org_type: Option<i32>,
     pub appid: Option<String>,
     pub icon: Option<String>,
+    pub level: Option<String>,           // 业务层级标识 (如: school/college/major/class)
     pub is_visible: Option<bool>,
     pub need_validate: Option<bool>,
     pub delete_flag: i32,
@@ -35,6 +36,8 @@ pub struct CreateOrgRequest {
     pub org_code: Option<String>,
     pub note: Option<String>,
     pub org_type: Option<i32>,
+    pub icon: Option<String>,      // 图标
+    pub level: Option<String>,     // 业务层级
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -49,6 +52,8 @@ pub struct UpdateOrgRequest {
     pub right_num: Option<i32>,
     pub note: Option<String>,
     pub org_type: Option<i32>,
+    pub icon: Option<String>,      // 图标
+    pub level: Option<String>,     // 业务层级
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -97,6 +102,8 @@ pub struct SysOrgTreeItem {
     pub tenant_id: Option<i64>,
     pub tenant_org_id: Option<i64>,
     pub tenant_flag: bool,
+    pub icon: Option<String>,              // 图标
+    pub level: Option<String>,             // 业务层级
     pub children: Vec<SysOrgTreeItem>,
 }
 
@@ -120,6 +127,71 @@ impl From<SysOrg> for SysOrgTreeItem {
             tenant_id: value.tenant_id,
             tenant_org_id: value.tenant_org_id,
             tenant_flag: value.tenant_org_id == Some(value.id),
+            icon: value.icon,
+            level: value.level,
+            children: vec![],
+        }
+    }
+}
+
+/// 通用组织导入结构 - 支持多种字段别名
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportOrgTreeItem {
+    // ID (支持字符串或数字)
+    #[serde(alias = "id")]
+    pub id: Option<serde_json::Value>,
+
+    // 名称
+    #[serde(alias = "name")]
+    pub name: Option<String>,
+
+    // 组织代码
+    #[serde(alias = "code", alias = "org_code")]
+    pub org_code: Option<String>,
+
+    // 业务层级 (school/college/major/class 等)
+    #[serde(alias = "level", alias = "type", alias = "biz_type")]
+    pub level: Option<String>,
+
+    // 图标
+    #[serde(alias = "icon", alias = "emoji")]
+    pub icon: Option<String>,
+
+    // 备注/描述
+    #[serde(alias = "note", alias = "description", alias = "desc", alias = "remark")]
+    pub note: Option<String>,
+
+    // 组织层级 (数字)
+    #[serde(alias = "node_level", alias = "depth")]
+    pub node_level: Option<i32>,
+
+    // 组织类型
+    #[serde(alias = "org_type", alias = "type_code")]
+    pub org_type: Option<i32>,
+
+    // 子节点
+    #[serde(alias = "children", alias = "childes", alias = "items")]
+    pub children: Option<Vec<ImportOrgTreeItem>>,
+}
+
+impl ImportOrgTreeItem {
+    /// 转换为 SysOrgTreeItem (自动分配 ID)
+    pub fn to_sys_org_item(&self, assigned_id: i64, parent_id: Option<i64>) -> SysOrgTreeItem {
+        SysOrgTreeItem {
+            id: assigned_id,
+            pid: parent_id,
+            name: self.name.clone().unwrap_or_default(),
+            full_name: self.name.clone(),
+            node_level: self.node_level,
+            note: self.note.clone(),
+            org_type: self.org_type,
+            appid: None,
+            tenant_id: None,
+            tenant_org_id: None,
+            tenant_flag: false,
+            icon: self.icon.clone(),
+            level: self.level.clone(),
             children: vec![],
         }
     }

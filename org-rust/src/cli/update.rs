@@ -42,6 +42,8 @@ pub async fn handle_update(
         right_num: None,
         note,
         org_type,
+        icon: None,
+        level: None,
     };
 
     match service.update_node(org_id, req).await {

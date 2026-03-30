@@ -173,8 +173,8 @@ pub async fn insert_child_org(
     let new_id: i64 = sqlx::query_scalar(
         r#"
         INSERT INTO t_sys_org
-        (pid, name, full_name, org_code, node_level, left_num, right_num, note, org_type, appid, tenant_id, tenant_org_id, delete_flag, create_time, update_time)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 0, NOW(), NOW())
+        (pid, name, full_name, org_code, node_level, left_num, right_num, note, org_type, appid, tenant_id, tenant_org_id, icon, level, delete_flag, create_time, update_time)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 0, NOW(), NOW())
         RETURNING id
         "#,
     )
@@ -190,6 +190,8 @@ pub async fn insert_child_org(
     .bind(&parent.appid)
     .bind(parent.tenant_id)
     .bind(parent.tenant_org_id.or(ctx.tenant_org_id))
+    .bind(&req.icon)
+    .bind(&req.level)
     .fetch_one(&mut *tx)
     .await
     .map_err(|e| AppError::Internal(e.to_string()))?;

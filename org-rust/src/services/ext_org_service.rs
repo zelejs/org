@@ -55,6 +55,8 @@ impl ExtOrgService {
                     org_code: req.org_num.clone(),
                     note: None,
                     org_type: Some(2),
+                    icon: None,
+                    level: None,
                 },
                 &RequestContext {
                     org_id: None,

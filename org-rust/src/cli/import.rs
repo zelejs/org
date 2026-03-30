@@ -1,5 +1,5 @@
 use sqlx::PgPool;
-use crate::models::org::{SysOrgTreeItem, CreateOrgRequest};
+use crate::models::org::{SysOrgTreeItem, CreateOrgRequest, ImportOrgTreeItem};
 use crate::services::{RequestContext, org_core};
 use console::Style;
 use std::fs;
@@ -34,10 +34,18 @@ pub async fn handle_import(
         println!();
     }
 
-    // Parse JSON
-    let tree: SysOrgTreeItem = serde_json::from_str(&json)?;
+    // 尝试多种格式解析
+    let tree = if let Ok(import_item) = serde_json::from_str::<ImportOrgTreeItem>(&json) {
+        println!("  Detected format: Generic import format (with field aliases)");
+        convert_import_tree(&import_item)?
+    } else if let Ok(sys_item) = serde_json::from_str::<SysOrgTreeItem>(&json) {
+        println!("  Detected format: Standard SysOrgTreeItem");
+        sys_item
+    } else {
+        anyhow::bail!("Failed to parse JSON: unsupported format");
+    };
 
-    println!("  Parsed organization: {}", tree.name);
+    println!("  Root: {}", tree.name);
     println!("  Tree depth: {}", max_depth(&tree));
     println!("  Total nodes: {}", count_nodes(&tree));
     println!();
@@ -110,6 +118,8 @@ pub async fn handle_import(
                 org_code: None, // Will be auto-generated
                 note: child.note.clone(),
                 org_type: child.org_type,
+                icon: child.icon.clone(),
+                level: child.level.clone(),
             };
 
             let new_id = org_core::insert_child_org(&pool, parent_id, req, &ctx).await?;
@@ -162,9 +172,41 @@ fn print_tree_item(item: &SysOrgTreeItem, depth: usize) {
         _ => "Unknown",
     };
 
-    println!("{}[{}] {} - {}", indent, item.id, item.name, org_type_label);
+    let icon_str = item.icon.as_ref().map(|i| format!("{} ", i)).unwrap_or_default();
+    let level_str = item.level.as_ref().map(|l| format!(" [{}]", l)).unwrap_or_default();
+    println!("{}[{}] {}{}{} - {}", indent, item.id, icon_str, item.name, level_str, org_type_label);
 
     for child in &item.children {
         print_tree_item(child, depth + 1);
+    }
+}
+
+/// 转换通用导入格式为 SysOrgTreeItem
+fn convert_import_tree(root: &ImportOrgTreeItem) -> anyhow::Result<SysOrgTreeItem> {
+    let mut id_counter = 1i64;
+    let mut result = root.to_sys_org_item(id_counter, None);
+    id_counter += 1;
+
+    result.children = convert_children(&root.children, Some(result.id), &mut id_counter)?;
+    Ok(result)
+}
+
+fn convert_children(
+    children: &Option<Vec<ImportOrgTreeItem>>,
+    parent_id: Option<i64>,
+    id_counter: &mut i64,
+) -> anyhow::Result<Vec<SysOrgTreeItem>> {
+    match children {
+        Some(items) => {
+            items.iter()
+                .map(|child| {
+                    let mut item = child.to_sys_org_item(*id_counter, parent_id);
+                    *id_counter += 1;
+                    item.children = convert_children(&child.children, Some(item.id), id_counter)?;
+                    Ok(item)
+                })
+                .collect()
+        }
+        None => Ok(vec![]),
     }
 }

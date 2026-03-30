@@ -37,6 +37,8 @@ pub async fn handle_insert(
         org_code,
         note,
         org_type,
+        icon: None,
+        level: None,
     };
 
     match org_core::insert_child_org(&pool, parent_id, req, &ctx).await {
