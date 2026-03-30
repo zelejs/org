@@ -4,10 +4,19 @@ use console::Style;
 
 pub async fn handle_show(
     pool: PgPool,
-    org_id: i64,
+    org_id: Option<i64>,
     format: &str,
     appid: Option<String>,
 ) -> anyhow::Result<()> {
+    // If org_id not provided, find root organization by appid
+    let org_id = if let Some(id) = org_id {
+        id
+    } else {
+        let root = org_core::get_root_org_by_appid(&pool, appid.as_deref()).await?
+            .ok_or_else(|| anyhow::anyhow!("No root organization found for appid: {:?}", appid))?;
+        root.id
+    };
+
     match format {
         "tree" => {
             let tree = org_core::get_subtree_with_appid(&pool, org_id, appid.as_deref()).await?;

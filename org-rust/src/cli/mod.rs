@@ -80,14 +80,17 @@ pub enum OrgCommands {
     /// Show organization subtree
     ///
     /// Display the organization tree starting from the specified node.
+    /// If org_id is not provided, shows the root organization for the given appid.
     ///
     /// Examples:
     ///   org-cli org show 1 --format json
     ///   org-cli org show 1 --format tree
-    ///   org-cli org show 1 --appid 'app-001' --format json
+    ///   org-cli org show --appid 'app-001' --format json
+    ///   org-cli org show  # Shows root with null appid
     Show {
-        /// Organization ID
-        org_id: i64,
+        /// Organization ID (default: root organization for the given appid)
+        #[arg(default_value = None)]
+        org_id: Option<i64>,
         /// Output format: json or tree
         #[arg(long, default_value = "json")]
         format: String,
