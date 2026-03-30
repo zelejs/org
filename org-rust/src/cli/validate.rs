@@ -15,7 +15,6 @@ pub async fn handle_validate(
     println!();
 
     let mut has_errors = false;
-    let mut total_checked = 0;
     let mut errors = Vec::new();
 
     let orgs_to_check = if let Some(id) = org_id {
@@ -31,8 +30,6 @@ pub async fn handle_validate(
         .await?;
         all_orgs.into_iter().map(|o| o.id).collect::<Vec<_>>()
     };
-
-    total_checked = orgs_to_check.len();
 
     // Check 1: Validate left_num < right_num
     println!("{}", bold.apply_to("Check 1: Validating left_num < right_num"));
@@ -126,7 +123,7 @@ pub async fn handle_validate(
 
     // Summary
     println!("{}", bold.apply_to("Summary"));
-    println!("  Organizations checked: {}", total_checked);
+    println!("  Organizations checked: {}", orgs_to_check.len());
     println!("  Total errors found: {}", errors.len());
     println!();
 
