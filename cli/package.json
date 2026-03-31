@@ -1,0 +1,25 @@
+{
+  "name": "org-cli",
+  "version": "1.0.0",
+  "description": "组织管理 CLI 工具 - 用于访问和管理组织 API",
+  "main": "lib/index.js",
+  "bin": {
+    "org-cli": "./bin/org-cli.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "organization",
+    "org",
+    "cli"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  }
+}
