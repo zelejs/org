@@ -1,0 +1,1 @@
+/home/ubuntu/workspace/clis/org-cli/bin/org-cli.js
