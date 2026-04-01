@@ -597,4 +597,9 @@ public class SysOrgServiceImpl implements SysOrgService {
         sysOrgExtDTO.setExtOrgId(sysOrgExt.getExtOrgId());
         return sysOrgExtDTO;
     }
+
+    @Override
+    public List<com.jfeat.org.tree.SysOrgTenantTreeItemDTO> listOrgWithTenant(BaseQueryParam p, String search) {
+        return sysOrgMapper.listOrgWithTenant(p, search);
+    }
 }

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jfeat.org.config.BaseQueryParam;
 import com.jfeat.org.services.persistence.model.SysOrg;
+import com.jfeat.org.tree.SysOrgTenantTreeItemDTO;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
@@ -42,5 +43,13 @@ public interface SysOrgMapper extends BaseMapper<SysOrg> {
     Long getMaxOrgIdById(@Param("id")Long id, @Param("length")Integer length);
 
     SysOrg findOrgByCode(@Param("code") String code);
+
+    /**
+     * Query organization tree with tenant information
+     * @param p query parameter
+     * @param search search keyword
+     * @return list of organization with tenant info
+     */
+    List<SysOrgTenantTreeItemDTO> listOrgWithTenant(@Param("_base") BaseQueryParam p, @Param("search") String search);
 
 }

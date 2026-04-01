@@ -44,4 +44,35 @@
 			AND t_sys_tenant.name LIKE CONCAT('%',#{search},'%')
 		</if>
 	</select>
+
+	<!-- Tenant list with organization information -->
+	<resultMap id="TenantDTOResultMap" type="com.jfeat.org.services.domain.model.SysTenantDTO">
+		<id column="tenant_id" property="id" />
+		<result column="tenant_name" property="name" />
+		<result column="org_id" property="orgId" />
+		<result column="org_code" property="orgCode" />
+		<result column="org_name" property="orgName" />
+		<result column="domain" property="domain" />
+		<result column="status" property="status" />
+		<result column="app_id" property="appId" />
+	</resultMap>
+
+	<select id="listTenantWithOrg" resultMap="TenantDTOResultMap">
+		SELECT
+			t.id as tenant_id,
+			t.name as tenant_name,
+			t.org_id,
+			o.org_code,
+			o.name as org_name,
+			t.domain,
+			t.status,
+			t.app_id
+		FROM t_sys_tenant t
+		LEFT JOIN t_sys_org o ON t.org_id = o.id
+		WHERE t.delete_flag = 0
+		<if test="search != null and search != ''">
+			AND t.name LIKE CONCAT('%',#{search},'%')
+		</if>
+		ORDER BY t.id
+	</select>
 </mapper>

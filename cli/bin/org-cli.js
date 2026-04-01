@@ -63,6 +63,68 @@ class OrganizationItem {
 }
 
 /**
+ * Organization Item with Tenant information
+ */
+class OrgTenantItem {
+    constructor(data = {}) {
+        this.id = data.id;
+        this.pid = data.pid || data.parentId || 0;
+        this.name = data.name || '';
+        this.orgCode = data.orgCode || data.org_code || null;
+        this.tenantCode = data.tenantCode || data.tenant_code || null;
+        this.tenantName = data.tenantName || data.tenant_name || null;
+        this.tenantId = data.tenantId || data.tenant_id || null;
+        this.tenantOrgId = data.tenantOrgId || data.tenant_org_id || null;
+        this.status = data.status || null;
+        this.children = (data.children || []).map(child => new OrgTenantItem(child));
+    }
+
+    toDict() {
+        return {
+            id: this.id,
+            pid: this.pid,
+            name: this.name,
+            orgCode: this.orgCode,
+            tenantCode: this.tenantCode,
+            tenantName: this.tenantName,
+            tenantId: this.tenantId,
+            tenantOrgId: this.tenantOrgId,
+            status: this.status,
+            children: this.children.map(child => child.toDict())
+        };
+    }
+}
+
+/**
+ * Tenant Item class
+ */
+class TenantItem {
+    constructor(data = {}) {
+        this.id = data.id;
+        this.name = data.name || '';
+        this.orgId = data.orgId || data.org_id || null;
+        this.orgCode = data.orgCode || data.org_code || null;
+        this.orgName = data.orgName || data.org_name || null;
+        this.domain = data.domain || null;
+        this.status = data.status || null;
+        this.appId = data.appId || data.app_id || null;
+    }
+
+    toDict() {
+        return {
+            id: this.id,
+            name: this.name,
+            orgId: this.orgId,
+            orgCode: this.orgCode,
+            orgName: this.orgName,
+            domain: this.domain,
+            status: this.status,
+            appId: this.appId
+        };
+    }
+}
+
+/**
  * Configuration management
  */
 function loadConfig() {
@@ -235,20 +297,43 @@ class OrganizationAPIClient {
         }
     }
 
-    async getOrgTree(appid = 1) {
-        const result = await this._request('GET', '/org/tree', { params: { appid } });
+    async getOrgTree(appid = null) {
+        const params = {};
+        if (appid !== null) {
+            params.appid = appid;
+        }
+        const result = await this._request('GET', '/adm/org/tree', { params });
         const data = result.data || result;
-        return Array.isArray(data) ? data.map(item => new OrganizationItem(item)) : [];
+        // API returns { children: [...] } - extract children array
+        const children = data.children || (Array.isArray(data) ? data : []);
+        return children.map(item => new OrganizationItem(item));
     }
 
     async getOrgList(page = 1, pageSize = 10, search = null) {
         const params = { pageNum: page, pageSize: pageSize };
-        if (search) params.search = search;
-        return this._request('GET', '/sys/org', { params });
+        if (search) params.name = search;
+        return this._request('GET', '/adm/org', { params });
     }
 
     async getOrg(id) {
-        return this._request('GET', `/sys/org/${id}`);
+        return this._request('GET', `/adm/org/${id}`);
+    }
+
+    async getTenantTree(appid = null) {
+        const params = {};
+        if (appid !== null) {
+            params.appid = appid;
+        }
+        const result = await this._request('GET', '/adm/org/tenant/tree', { params });
+        const data = result.data || result;
+        const children = data.children || (Array.isArray(data) ? data : []);
+        return children.map(item => new OrgTenantItem(item));
+    }
+
+    async getTenantList(page = 1, pageSize = 10, search = null) {
+        const params = { pageNum: page, pageSize: pageSize };
+        if (search) params.search = search;
+        return this._request('GET', '/adm/tenant', { params });
     }
 }
 
@@ -298,6 +383,43 @@ class OrgTreePrinter {
         }
         return text;
     }
+}
+
+/**
+ * Print tenant tree
+ */
+function printTenantTree(items, showDetails = false, prefix = '', isLast = true) {
+    items.forEach((item, i) => {
+        const isLastItem = i === items.length - 1;
+        const connector = isLastItem ? '└── ' : '├── ';
+        console.log(`${prefix}${connector}${formatTenantItem(item, showDetails)}`);
+
+        if (item.children && item.children.length > 0) {
+            const extension = isLastItem ? '    ' : '│   ';
+            printTenantTree(item.children, showDetails, prefix + extension, isLastItem);
+        }
+    });
+}
+
+function formatTenantItem(item, showDetails) {
+    const parts = [`[${item.id}] ${item.name}`];
+
+    if (showDetails) {
+        if (item.orgCode) {
+            parts.push(`orgCode: ${item.orgCode}`);
+        }
+        if (item.tenantCode) {
+            parts.push(`tenantCode: ${item.tenantCode}`);
+        }
+        if (item.tenantName) {
+            parts.push(`tenant: ${item.tenantName}`);
+        }
+        if (item.tenantId) {
+            parts.push(`tenantId: ${item.tenantId}`);
+        }
+    }
+
+    return parts.join(' ');
 }
 
 /**
@@ -404,17 +526,19 @@ function parseCommandArgs(args, spec) {
  */
 function showHelp() {
     console.log(`
-Organization CLI v1.0.0
+Organization CLI v1.1.0
 
 USAGE:
   org-cli [options] <command> [args]
 
 COMMANDS:
-  tree       Show organization tree structure
-  list       List organizations with pagination
-  get <id>   Get specific organization details
-  config     Manage configuration
-  help       Show this help
+  tree           Show organization tree structure
+  tree tenant    Show organization tree with tenant information
+  list           List organizations with pagination
+  tenant list    List tenants with pagination
+  get <id>       Get specific organization details
+  config         Manage configuration
+  help           Show this help
 
 OPTIONS:
   --url <url>        API base URL
@@ -425,7 +549,9 @@ OPTIONS:
 
 EXAMPLES:
   org-cli tree --appid 1
+  org-cli tree tenant --appid school-app
   org-cli list --page 1 --page-size 10
+  org-cli tenant list --page 1
   org-cli get 1
 
 CONFIG:
@@ -512,6 +638,15 @@ CONFIG COMMANDS:
 
     const commandArgs = options.commandArgs || [];
 
+    // Handle sub-commands with spaces (e.g., "tree tenant")
+    if (options.command === 'tree' && commandArgs.length > 0 && commandArgs[0] === 'tenant') {
+        options.command = 'tree-tenant';
+        options.commandArgs = commandArgs.slice(1);
+    } else if (options.command === 'tenant' && commandArgs.length > 0 && commandArgs[0] === 'list') {
+        options.command = 'tenant-list';
+        options.commandArgs = commandArgs.slice(1);
+    }
+
     if (options.command === 'tree') {
         const treeSpec = {
             flags: [
@@ -520,14 +655,15 @@ CONFIG COMMANDS:
             ]
         };
         const cmdOptions = parseCommandArgs(commandArgs, treeSpec);
-        const appid = parseInt(cmdOptions.appid) || 1;
+        const appid = cmdOptions.appid || null;
 
         const orgTree = await client.getOrgTree(appid);
 
         if (options.json) {
             printJson(orgTree);
         } else {
-            console.log(`Organization Tree (appid: ${appid})`);
+            const displayAppid = appid !== null ? appid : 'default';
+            console.log(`Organization Tree (appid: ${displayAppid})`);
             console.log('-'.repeat(80));
             const printer = new OrgTreePrinter({ showDetails: cmdOptions.details });
             printer.printTree(orgTree);
@@ -605,6 +741,73 @@ CONFIG COMMANDS:
             if (org.remark) {
                 console.log(`Remark:   ${org.remark}`);
             }
+        }
+
+    } else if (options.command === 'tree-tenant') {
+        const treeSpec = {
+            flags: [
+                { names: ['-d', '--details'], key: 'details', hasValue: false },
+                { names: ['--appid'], key: 'appid', hasValue: true }
+            ]
+        };
+        const cmdOptions = parseCommandArgs(options.commandArgs, treeSpec);
+        const appid = cmdOptions.appid || null;
+
+        const tenantTree = await client.getTenantTree(appid);
+
+        if (options.json) {
+            printJson(tenantTree);
+        } else {
+            const displayAppid = appid !== null ? appid : 'default';
+            console.log(`Organization Tree with Tenant Info (appid: ${displayAppid})`);
+            console.log('-'.repeat(80));
+            printTenantTree(tenantTree, cmdOptions.details);
+        }
+
+    } else if (options.command === 'tenant-list') {
+        const listSpec = {
+            flags: [
+                { names: ['-p', '--page'], key: 'page', hasValue: true },
+                { names: ['-s', '--page-size'], key: 'pageSize', hasValue: true },
+                { names: ['--search'], key: 'search', hasValue: true }
+            ]
+        };
+        const cmdOptions = parseCommandArgs(options.commandArgs, listSpec);
+        const page = parseInt(cmdOptions.page) || 1;
+        const pageSize = parseInt(cmdOptions.pageSize) || 10;
+
+        const result = await client.getTenantList(page, pageSize, cmdOptions.search || null);
+
+        if (options.json) {
+            printJson(result);
+        } else {
+            const data = result.data || result;
+            let records, total, pages, current;
+
+            if (typeof data === 'object' && !Array.isArray(data)) {
+                records = data.records || [];
+                total = data.total || records.length;
+                pages = data.pages || 1;
+                current = data.current || page;
+                console.log(`Tenant List (Page ${current} of ${pages}, ${total} records)`);
+            } else {
+                records = data || [];
+                total = records.length;
+                console.log(`Tenant List (${total} records)`);
+            }
+
+            console.log('-'.repeat(80));
+
+            records.forEach(item => {
+                const statusStr = item.status === 1 ? '✓' : '✗';
+                const orgCode = (item.orgCode || 'N/A').padEnd(15);
+                console.log(`[${item.id}] ${item.name} - orgCode: ${orgCode} status: ${statusStr}`);
+                if (cmdOptions.details) {
+                    console.log(`    Org ID: ${item.orgId || 'N/A'}`);
+                    console.log(`    Org Name: ${item.orgName || 'N/A'}`);
+                    console.log(`    Domain: ${item.domain || 'N/A'}`);
+                }
+            });
         }
 
     } else {

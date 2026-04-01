@@ -69,4 +69,46 @@
         SELECT * FROM t_sys_org WHERE org_code = #{code} and delete_flag = 0
     </select>
 
+    <!-- Organization tree with tenant information -->
+    <resultMap id="OrgTenantTreeResultMap" type="com.jfeat.org.tree.SysOrgTenantTreeItemDTO">
+        <id column="id" property="id" />
+        <result column="pid" property="pid" />
+        <result column="name" property="name" />
+        <result column="full_name" property="fullName" />
+        <result column="node_level" property="nodeLevel" />
+        <result column="note" property="note" />
+        <result column="org_type" property="orgType" />
+        <result column="appid" property="appid" />
+        <result column="tenant_id" property="tenantId" />
+        <result column="tenant_org_id" property="tenantOrgId" />
+        <!-- Tenant fields -->
+        <result column="tenant_code" property="tenantCode" />
+        <result column="tenant_name" property="tenantName" />
+    </resultMap>
+
+    <select id="listOrgWithTenant" resultMap="OrgTenantTreeResultMap">
+        SELECT
+            o.id,
+            o.pid,
+            o.name,
+            o.full_name,
+            o.node_level,
+            o.note,
+            o.org_type,
+            o.appid,
+            o.tenant_id,
+            o.tenant_org_id,
+            t.id as tenant_id,
+            t.name as tenant_name,
+            o.org_code as tenant_code
+        FROM t_sys_org o
+        LEFT JOIN t_sys_tenant t ON o.tenant_org_id = t.org_id
+        WHERE o.delete_flag = 0
+        <if test="search != null and search != ''">
+            AND o.name LIKE CONCAT('%',#{search},'%')
+        </if>
+        <include refid="BaseQuerySql"/>
+        ORDER BY o.node_level ASC
+    </select>
+
 </mapper>

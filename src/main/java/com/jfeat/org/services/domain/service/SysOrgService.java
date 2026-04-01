@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jfeat.org.config.BaseQueryParam;
 import com.jfeat.org.services.domain.model.*;
 import com.jfeat.org.services.persistence.model.SysOrg;
+import com.jfeat.org.tree.SysOrgTenantTreeItemDTO;
 
 import java.util.List;
 
@@ -58,4 +59,12 @@ public interface SysOrgService {
     List<ExtOrgRelationDTO> extList();
 
     SysOrgExtDTO getSysOrgExt(Long orgId, Long extOrgId);
+
+    /**
+     * Query organization tree with tenant information
+     * @param p query parameter
+     * @param search search keyword
+     * @return list of organization with tenant info
+     */
+    List<SysOrgTenantTreeItemDTO> listOrgWithTenant(BaseQueryParam p, String search);
 }
