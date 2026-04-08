@@ -1,8 +1,7 @@
 package com.jfeat.org.api.crud;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.jfeat.crud.base.tips.SuccessTip;
-import com.jfeat.crud.base.tips.Tip;
+import com.xinzhi.plat.common.result.ApiResult;
 import com.jfeat.org.services.domain.model.SysTenantDTO;
 import com.jfeat.org.services.persistence.dao.SysTenantMapper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,9 +33,9 @@ public class TenantEndpoint {
     @Operation(summary = "分页查询租户列表",
             description = "分页查询租户列表，支持按租户名称进行模糊搜索。返回结果包含租户基本信息和关联的组织信息。")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "查询成功", content = @Content(schema = @Schema(implementation = Tip.class)))
+            @ApiResponse(responseCode = "200", description = "查询成功", content = @Content(schema = @Schema(implementation = ApiResult.class)))
     })
-    public Tip pageTenant(
+    public ApiResult<Page<SysTenantDTO>> pageTenant(
             Page<SysTenantDTO> page,
             @Parameter(description = "页码，从1开始", example = "1")
             @RequestParam(value = "pageNum", defaultValue = "1") Integer pageNum,
@@ -48,6 +47,6 @@ public class TenantEndpoint {
         page.setSize(pageSize);
         List<SysTenantDTO> tenants = sysTenantMapper.listTenantWithOrg(page, search);
         page.setRecords(tenants);
-        return SuccessTip.create(page);
+        return ApiResult.success(page);
     }
 }

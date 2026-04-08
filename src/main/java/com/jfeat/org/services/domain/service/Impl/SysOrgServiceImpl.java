@@ -8,9 +8,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jfeat.am.core.jwt.JWTKit;
-import com.jfeat.crud.base.exception.BusinessCode;
-import com.jfeat.crud.base.exception.BusinessException;
-import com.jfeat.crud.base.util.RandomUtil;
+import com.xinzhi.plat.common.exception.BusinessException;
 import com.jfeat.org.config.BaseQueryParam;
 import com.jfeat.org.constant.CommonConstants;
 import com.jfeat.org.constant.OrganizationTypeConstants;
@@ -24,6 +22,8 @@ import com.jfeat.org.services.persistence.model.SysOrg;
 import com.jfeat.org.services.persistence.model.SysOrgExt;
 import com.jfeat.org.utills.CodeGenerator;
 import org.slf4j.Logger;
+
+import java.security.SecureRandom;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,14 +65,25 @@ public class SysOrgServiceImpl implements SysOrgService {
         } else {
             // 生成代码
             for (int i = 0; i < 100; i++) {
-                String newCode = RandomUtil.getRandomStr_Base62(8);
+                String newCode = generateRandomBase62(8);
                 SysOrg sysOrg = sysOrgMapper.findOrgByCode(newCode);
                 if(sysOrg == null) {
                     return newCode;
                 }
             }
-            throw new BusinessException(BusinessCode.InvalidKey, "自动生成组织代码重复，再尝试！");
+            throw new BusinessException(-1001, "自动生成组织代码重复，再尝试！");
         }
+    }
+
+    private static final String BASE62_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    private static final SecureRandom RANDOM = new SecureRandom();
+
+    private String generateRandomBase62(int length) {
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            sb.append(BASE62_CHARS.charAt(RANDOM.nextInt(BASE62_CHARS.length())));
+        }
+        return sb.toString();
     }
 
     @Override
@@ -320,7 +331,7 @@ public class SysOrgServiceImpl implements SysOrgService {
                 .eq("pid",pid)
                 .eq("name",name));
         if(sysOrgNameUnique!=null){
-            throw new BusinessException(BusinessCode.CRUD_INSERT_FAILURE,"已存在该名字的组织");
+            throw new BusinessException(-1002, "已存在该名字的组织");
         }
     }
 

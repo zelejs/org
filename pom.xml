@@ -41,7 +41,6 @@
     <properties>
         <skipStandalone>true</skipStandalone>
         <jwt-core.version>21.0.0</jwt-core.version>
-        <crud-plus.version>21.0.0</crud-plus.version>
         <java.version>17</java.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
@@ -78,10 +77,11 @@
             <artifactId>lombok</artifactId>
             <version>${lombok.version}</version>
         </dependency>
+        <!-- plat-common -->
         <dependency>
-            <groupId>com.jfeat</groupId>
-            <artifactId>crud-plus</artifactId>
-            <version>${crud-plus.version}</version>
+            <groupId>com.xinzhi.plat</groupId>
+            <artifactId>plat-common</artifactId>
+            <version>1.0.0</version>
         </dependency>
         <dependency>
             <groupId>com.jfeat</groupId>

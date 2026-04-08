@@ -1,6 +1,6 @@
 package com.jfeat.org.tree;
 
-import com.jfeat.crud.base.exception.BusinessException;
+import com.xinzhi.plat.common.exception.BusinessException;
 
 import java.util.*;
 
