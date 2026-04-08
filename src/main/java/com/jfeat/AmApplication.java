@@ -9,8 +9,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 @MapperScan({
     "com.jfeat.org.services.persistence.dao",
-    "com.jfeat.org.services.domain.dao",
-    "com.jfeat.crud.plus.service.dao"
+    "com.jfeat.org.services.domain.dao"
 })
 public class AmApplication {
     protected final static Logger logger = LoggerFactory.getLogger(AmApplication.class);
