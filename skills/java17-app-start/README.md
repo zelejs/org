@@ -1,5 +1,24 @@
 # Java 17 Application Startup Fix Summary
 
+## Parent POM: plat-parent
+
+This project now uses `plat-parent` as the parent POM, which provides:
+
+- Spring Boot 3.4.0
+- Java 17
+- Lombok 1.18.36
+- Fastjson2 2.0.53
+- MySQL Connector 8.0.28
+
+### Benefits of plat-parent
+
+1. **No need to redefine** common properties like `spring-boot.version`, `lombok.version`
+2. **No need for BOM** - Spring Boot BOM is already included
+3. **Consistent versions** across all internal projects
+4. **Simpler pom.xml** - remove redundant dependencyManagement
+
+---
+
 ## Problem
 UaaS module failed to start with standalone JAR, while org module started successfully.
 
