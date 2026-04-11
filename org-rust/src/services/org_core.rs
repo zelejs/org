@@ -4,7 +4,7 @@ use sqlx::PgPool;
 
 use crate::models::{
     error::{AppError, AppResult},
-    org::{SysOrg, SysOrgTreeItem, CreateOrgRequest},
+    org::{SysOrg, SysOrgTreeItem, SysOrgTenantTreeItem, CreateOrgRequest},
 };
 use crate::services::RequestContext;
 
@@ -486,4 +486,45 @@ fn random_org_code() -> String {
         .take(8)
         .map(char::from)
         .collect()
+}
+
+/// Build tenant tree structure from flat list
+pub fn build_tenant_tree(
+    items: &mut Vec<SysOrgTenantTreeItem>,
+    root_id: i64,
+) -> Option<SysOrgTenantTreeItem> {
+    use std::collections::HashMap;
+
+    let mut items_map: HashMap<i64, SysOrgTenantTreeItem> =
+        items.drain(..).map(|item| (item.id, item)).collect();
+    let mut parent_to_children: HashMap<i64, Vec<i64>> = HashMap::new();
+
+    for (&id, item) in &items_map {
+        if let Some(pid) = item.pid {
+            parent_to_children.entry(pid).or_default().push(id);
+        }
+    }
+
+    build_tenant_tree_recursive_helper(&mut items_map, &parent_to_children, root_id)
+}
+
+fn build_tenant_tree_recursive_helper(
+    items_map: &mut std::collections::HashMap<i64, SysOrgTenantTreeItem>,
+    parent_to_children: &std::collections::HashMap<i64, Vec<i64>>,
+    item_id: i64,
+) -> Option<SysOrgTenantTreeItem> {
+    if let Some(mut item) = items_map.remove(&item_id) {
+        if let Some(children_ids) = parent_to_children.get(&item_id) {
+            for child_id in children_ids {
+                if let Some(child) =
+                    build_tenant_tree_recursive_helper(items_map, parent_to_children, *child_id)
+                {
+                    item.children.push(child);
+                }
+            }
+        }
+        Some(item)
+    } else {
+        None
+    }
 }

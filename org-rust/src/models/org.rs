@@ -121,6 +121,102 @@ pub struct TreeTop {
     pub children: Vec<SysOrgTreeItem>,
 }
 
+/// Organization tree item with tenant information (for SQL query)
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct SysOrgTenantTreeItemRow {
+    pub id: i64,
+    pub pid: Option<i64>,
+    pub name: String,
+    pub full_name: Option<String>,
+    pub org_code: Option<String>,
+    pub node_level: Option<i32>,
+    pub left_num: Option<i32>,
+    pub right_num: Option<i32>,
+    pub note: Option<String>,
+    pub status: Option<String>,
+    pub org_type: Option<i32>,
+    pub appid: Option<String>,
+    pub is_visible: Option<bool>,
+    pub need_validate: Option<bool>,
+    pub tenant_id: Option<i64>,
+    pub tenant_org_id: Option<i64>,
+    pub icon: Option<String>,
+    pub level: Option<String>,
+    pub create_time: Option<NaiveDateTime>,
+    pub update_time: Option<NaiveDateTime>,
+    pub tenant_code: Option<String>,
+    pub tenant_name: Option<String>,
+}
+
+/// Organization tree item with tenant information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SysOrgTenantTreeItem {
+    pub id: i64,
+    pub pid: Option<i64>,
+    pub name: String,
+    pub full_name: Option<String>,
+    pub org_code: Option<String>,
+    pub node_level: Option<i32>,
+    pub left_num: Option<i32>,
+    pub right_num: Option<i32>,
+    pub note: Option<String>,
+    pub status: Option<String>,
+    pub org_type: Option<i32>,
+    pub appid: Option<String>,
+    pub is_visible: Option<bool>,
+    pub need_validate: Option<bool>,
+    pub tenant_id: Option<i64>,
+    pub tenant_org_id: Option<i64>,
+    pub tenant_flag: bool,
+    pub icon: Option<String>,
+    pub level: Option<String>,
+    pub create_time: Option<NaiveDateTime>,
+    pub update_time: Option<NaiveDateTime>,
+    pub children: Vec<SysOrgTenantTreeItem>,
+    // Tenant-specific fields
+    pub tenant_code: Option<String>,
+    pub tenant_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TreeTopTenant {
+    pub children: Vec<SysOrgTenantTreeItem>,
+}
+
+impl From<SysOrgTenantTreeItemRow> for SysOrgTenantTreeItem {
+    fn from(value: SysOrgTenantTreeItemRow) -> Self {
+        Self {
+            id: value.id,
+            pid: value.pid,
+            name: value.name,
+            full_name: value.full_name,
+            org_code: value.org_code,
+            node_level: value.node_level,
+            left_num: value.left_num,
+            right_num: value.right_num,
+            note: value.note,
+            status: value.status,
+            org_type: value.org_type,
+            appid: value.appid,
+            is_visible: value.is_visible,
+            need_validate: value.need_validate,
+            tenant_id: value.tenant_id,
+            tenant_org_id: value.tenant_org_id,
+            tenant_flag: value.tenant_org_id == Some(value.id),
+            icon: value.icon,
+            level: value.level,
+            create_time: value.create_time,
+            update_time: value.update_time,
+            children: vec![],
+            tenant_code: value.tenant_code,
+            tenant_name: value.tenant_name,
+        }
+    }
+}
+
 impl From<SysOrg> for SysOrgTreeItem {
     fn from(value: SysOrg) -> Self {
         Self {

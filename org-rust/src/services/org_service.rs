@@ -3,9 +3,10 @@ use sqlx::{Postgres, PgPool, QueryBuilder};
 use crate::models::{
     error::{AppError, AppResult},
     org::{
-        CreateOrgRequest, OrgListQuery, OrgTreeQuery, PageResult, SysOrg, SysOrgTreeItem, TreeTop,
-        UpdateOrgRequest,
+        CreateOrgRequest, OrgListQuery, OrgTreeQuery, PageResult, SysOrg, SysOrgTreeItem,
+        SysOrgTenantTreeItem, SysOrgTenantTreeItemRow, TreeTop, TreeTopTenant, UpdateOrgRequest,
     },
+    tenant::{SysTenantDTO, TenantQuery},
 };
 use crate::services::{
     org_core,
@@ -233,6 +234,180 @@ impl OrgService {
 
         let data = qb
             .build_query_as::<SysOrg>()
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+        Ok(data)
+    }
+
+    /// Page query tenants with organization information
+    pub async fn page_tenants(&self, query: TenantQuery) -> AppResult<PageResult<SysTenantDTO>> {
+        let mut qb = QueryBuilder::<Postgres>::new(
+            r#"SELECT
+                t.id,
+                t.name,
+                t.org_id,
+                o.org_code,
+                o.name as org_name,
+                t.domain,
+                t.status,
+                t.app_id
+            FROM t_sys_tenant t
+            LEFT JOIN t_sys_org o ON t.org_id = o.id
+            WHERE t.delete_flag = 0"#,
+        );
+
+        if let Some(search) = query.search {
+            qb.push(" AND t.name LIKE ");
+            qb.push_bind(format!("%{}%", search));
+        }
+
+        qb.push(" ORDER BY t.id");
+        qb.push(" LIMIT ");
+        qb.push_bind(query.page_size);
+        qb.push(" OFFSET ");
+        qb.push_bind((query.page_num - 1) * query.page_size);
+
+        let records = qb
+            .build_query_as::<SysTenantDTO>()
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        Ok(PageResult {
+            current: query.page_num,
+            size: query.page_size,
+            records,
+        })
+    }
+
+    /// Query organization tree with tenant information
+    pub async fn tree_with_tenant(
+        &self,
+        query: OrgTreeQuery,
+        ctx: &RequestContext,
+    ) -> AppResult<TreeTopTenant> {
+        let jwt_appid = ctx.appid.clone();
+        let jwt_org_id = ctx.org_id;
+
+        let final_appid = jwt_appid.clone().or(query.appid.clone());
+        let mut org_id = jwt_org_id;
+        if org_id.is_none() && final_appid.is_none() {
+            org_id = Some(1);
+        }
+
+        let by_param_appid = jwt_appid.is_none() && query.appid.is_some();
+        let filter_type = if by_param_appid { 0 } else { 2 };
+        let root_org_id = if by_param_appid { 1 } else { org_id.unwrap_or(1) };
+
+        let list = self
+            .list_org_with_tenant(query.search.as_deref(), final_appid.as_deref(), root_org_id, filter_type, ctx.tenant_org_id)
+            .await?;
+
+        if list.is_empty() {
+            return Ok(TreeTopTenant { children: vec![] });
+        }
+
+        let mut items: Vec<SysOrgTenantTreeItem> = list.into_iter().map(Into::into).collect();
+        let selected_root = if by_param_appid {
+            items
+                .iter()
+                .find(|v| v.pid.is_none() && v.appid == query.appid)
+                .map(|v| v.id)
+                .unwrap_or(root_org_id)
+        } else {
+            root_org_id
+        };
+
+        let root = org_core::build_tenant_tree(&mut items, selected_root)
+            .ok_or_else(|| AppError::BadRequest("Root node not found".to_string()))?;
+
+        Ok(TreeTopTenant {
+            children: vec![root],
+        })
+    }
+
+    /// Internal method: query organizations with tenant information
+    async fn list_org_with_tenant(
+        &self,
+        search: Option<&str>,
+        appid: Option<&str>,
+        org_id: i64,
+        filter_type: i32,
+        tenant_org_id: Option<i64>,
+    ) -> AppResult<Vec<SysOrgTenantTreeItemRow>> {
+        let mut qb = QueryBuilder::<Postgres>::new(
+            r#"SELECT
+                o.id,
+                o.pid,
+                o.name,
+                o.full_name,
+                o.node_level,
+                o.note,
+                o.org_type,
+                o.appid,
+                o.tenant_id,
+                o.tenant_org_id,
+                o.left_num,
+                o.right_num,
+                o.org_code,
+                o.status,
+                o.is_visible,
+                o.need_validate,
+                o.icon,
+                o.level,
+                o.create_time,
+                o.update_time,
+                t.id as tenant_id,
+                t.name as tenant_name,
+                o.org_code as tenant_code
+            FROM t_sys_org o
+            LEFT JOIN t_sys_tenant t ON o.tenant_org_id = t.org_id
+            WHERE o.delete_flag = 0"#,
+        );
+
+        if let Some(s) = search {
+            qb.push(" AND o.name LIKE ");
+            qb.push_bind(format!("%{}%", s));
+        }
+        if let Some(a) = appid {
+            qb.push(" AND (o.appid = ");
+            qb.push_bind(a);
+            qb.push(" OR o.appid IS NULL)");
+        }
+        if org_id != 1 && filter_type == 2 {
+            qb.push(
+                " AND o.id IN (
+                    SELECT c.id FROM t_sys_org f
+                    LEFT JOIN t_sys_org c
+                    ON (f.left_num <= c.left_num AND c.right_num <= f.right_num AND c.delete_flag = 0",
+            );
+            if let Some(tenant) = tenant_org_id {
+                qb.push(" AND c.tenant_org_id = ");
+                qb.push_bind(tenant);
+            } else {
+                qb.push(" AND 1 = 0");
+            }
+            qb.push(") WHERE f.id = ",
+            );
+            qb.push_bind(org_id);
+            qb.push(" AND f.delete_flag = 0)");
+        }
+        if org_id != 1 && filter_type == 1 {
+            qb.push(
+                " AND o.id IN (
+                    SELECT c.id FROM t_sys_org f
+                    LEFT JOIN t_sys_org c
+                    ON (f.left_num <= c.left_num AND c.right_num <= f.right_num AND c.delete_flag = 0)
+                    WHERE f.id = ",
+            );
+            qb.push_bind(org_id);
+            qb.push(" AND f.delete_flag = 0)");
+        }
+        qb.push(" ORDER BY o.node_level ASC");
+
+        let data = qb
+            .build_query_as::<SysOrgTenantTreeItemRow>()
             .fetch_all(&self.pool)
             .await
             .map_err(|e| AppError::Internal(e.to_string()))?;

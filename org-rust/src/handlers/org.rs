@@ -7,7 +7,7 @@ use crate::{
     api::state::AppState,
     models::{
         error::AppError,
-        org::{CreateOrgRequest, OrgListQuery, OrgTreeQuery, UpdateOrgRequest},
+        org::{CreateOrgRequest, OrgListQuery, OrgTreeQuery, TreeTopTenant, UpdateOrgRequest},
         response::Tip,
     },
     services::RequestContext,
@@ -62,6 +62,15 @@ pub async fn tree_orgs(
     Query(query): Query<OrgTreeQuery>,
 ) -> Result<Json<Tip<crate::models::org::TreeTop>>, AppError> {
     let tree = state.org_service.tree(query, &ctx).await?;
+    Ok(Json(Tip::success(tree)))
+}
+
+pub async fn tree_orgs_with_tenant(
+    State(state): State<AppState>,
+    ctx: RequestContext,
+    Query(query): Query<OrgTreeQuery>,
+) -> Result<Json<Tip<TreeTopTenant>>, AppError> {
+    let tree = state.org_service.tree_with_tenant(query, &ctx).await?;
     Ok(Json(Tip::success(tree)))
 }
 
