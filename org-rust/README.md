@@ -2,12 +2,27 @@
 
 参考 `eav/eav-rust` 的 `axum + sqlx` 分层风格重建的组织服务脚手架，接口与原 Java `auth/org` 的核心路由保持一致。
 
+## 更新日志
+
+### 2026-04-11 - 第三方扩展接口
+
+**新增功能：第三方业务扩展接口**
+
+组织创建时支持调用第三方业务接口，实现业务组织表与 `t_sys_org.ext_org_id` 的关联。
+
+- 定义通用 `OrgExtension` trait，支持第三方实现
+- 按层级（`node_level` 或 `level`）自动分发扩展调用
+- 支持组织创建和删除的扩展钩子
+- 完全可选，不影响现有功能
+- 详细文档：[第三方业务扩展实现指南](docs/third-party-extension-guide.md)
+
 ## 功能特性
 
 - **组织树管理**：基于 Nested Set Model（嵌套集合模型）的高效层级查询
 - **CLI 工具**：完整的命令行工具，支持组织树的增删改查、导入导出
 - **REST API**：与原 Java 版本兼容的 HTTP 接口
 - **多租户支持**：通过 `appid` 实现多应用组织隔离
+- **第三方扩展**：支持业务系统在组织创建/删除时扩展自定义逻辑（2026-04-11 新增）
 
 ## 快速开始
 
@@ -244,6 +259,174 @@ ID  | AppID   | Name     | Type        | Children
 - `GET /api/adm/sys/extOrg/list` - 查询外部组织
 - `POST /api/adm/sys/extOrg/sync` - 同步外部组织
 
+## 第三方业务扩展
+
+### 概述
+
+第三方业务扩展允许在组织创建/删除时执行自定义业务逻辑，实现业务组织表与 `t_sys_org.ext_org_id` 的关联。
+
+### 应用场景
+
+- 创建组织时同步创建业务表（如学院表、专业表）
+- 删除组织前检查业务数据约束
+- 通过 HTTP 调用外部系统同步组织数据
+
+### 快速开始
+
+#### 1. 实现 OrgExtension Trait
+
+```rust
+use async_trait::async_trait;
+use org_rust::services::ext::{OrgExtension, OrgLevel};
+use org_rust::models::{org::{SysOrg, CreateOrgRequest}, error::AppResult};
+use org_rust::services::RequestContext;
+
+pub struct MyBusinessExtension {
+    db_pool: sqlx::PgPool,
+}
+
+#[async_trait]
+impl OrgExtension for MyBusinessExtension {
+    async fn on_org_created(
+        &self,
+        org: &SysOrg,
+        req: &CreateOrgRequest,
+        ctx: &RequestContext,
+    ) -> AppResult<Option<i64>> {
+        // 创建业务记录，返回业务 ID
+        let business_id: i64 = sqlx::query_scalar(
+            "INSERT INTO t_my_business (org_id, name) VALUES ($1, $2) RETURNING id"
+        )
+        .bind(org.id)
+        .bind(&org.name)
+        .fetch_one(&self.db_pool)
+        .await?;
+
+        Ok(Some(business_id))
+    }
+
+    async fn on_org_delete(
+        &self,
+        org: &SysOrg,
+        ctx: &RequestContext,
+    ) -> AppResult<()> {
+        // 删除前检查
+        Ok(())
+    }
+
+    fn supported_levels(&self) -> Vec<OrgLevel> {
+        // 声明支持的层级
+        vec![
+            OrgLevel::BusinessLevel("college".to_string()),
+            OrgLevel::NodeLevel(2),
+        ]
+    }
+}
+```
+
+#### 2. 注册扩展管理器
+
+```rust
+use org_rust::services::{OrgService, ext::OrgExtensionManager};
+use std::sync::Arc;
+
+// 创建扩展管理器
+let mut extension_manager = OrgExtensionManager::new();
+extension_manager.register(Arc::new(MyBusinessExtension::new(db_pool.clone())));
+
+// 创建 OrgService 并注入扩展管理器
+let org_service = OrgService::new(db_pool)
+    .with_extension_manager(Arc::new(extension_manager));
+```
+
+#### 3. 创建组织
+
+```rust
+// 创建组织时，扩展会自动被调用
+let req = CreateOrgRequest {
+    name: "计算机学院".to_string(),
+    level: Some("college".to_string()),
+    ..Default::default()
+};
+
+let org_id = org_service.create_child(parent_id, req, &ctx).await?;
+// ext_org_id 会自动关联到 t_sys_org_ext 表
+```
+
+### 扩展接口说明
+
+#### OrgExtension Trait
+
+```rust
+#[async_trait]
+pub trait OrgExtension: Send + Sync {
+    /// 组织创建后的扩展处理
+    async fn on_org_created(
+        &self,
+        org: &SysOrg,
+        req: &CreateOrgRequest,
+        ctx: &RequestContext,
+    ) -> AppResult<Option<i64>>;
+
+    /// 组织删除前的扩展处理
+    async fn on_org_delete(
+        &self,
+        org: &SysOrg,
+        ctx: &RequestContext,
+    ) -> AppResult<()>;
+
+    /// 声明支持的层级
+    fn supported_levels(&self) -> Vec<OrgLevel>;
+}
+```
+
+#### 层级匹配规则
+
+扩展管理器按以下优先级匹配扩展处理器：
+
+1. **业务层级（level）**：如 `school`、`college`、`major`、`class`
+2. **物理层级（node_level）**：如 `1`、`2`、`3`
+
+```rust
+// 方式1: 按业务层级标识匹配（推荐）
+OrgLevel::BusinessLevel("college".to_string())
+
+// 方式2: 按物理层级匹配
+OrgLevel::NodeLevel(2) // 第2层
+```
+
+### 调用流程
+
+```
+创建组织请求
+    ↓
+insert_child_org (开始事务)
+    ↓
+更新 left_num/right_num
+    ↓
+插入 t_sys_org 记录
+    ↓
+[扩展管理器] 按 level 查找匹配的扩展处理器
+    ↓
+[扩展处理器] on_org_created() → 返回 ext_org_id
+    ↓
+插入 t_sys_org_ext 记录
+    ↓
+提交事务
+    ↓
+返回 org_id
+```
+
+### 事务处理
+
+- 扩展调用在同一事务中执行
+- 扩展返回错误会导致整个事务回滚
+- 扩展返回 `Ok(None)` 跳过 `ext_org_id` 关联
+
+### 完整文档
+
+详细的实现指南和示例代码请参考：[第三方业务扩展实现指南](docs/third-party-extension-guide.md)
+
 ## 鉴权上下文
 
 当前用请求头透传 JWT 上下文（用于替代 Java 版 `JWTKit`）：
@@ -283,9 +466,16 @@ org-rust/
 │   │   ├── import.rs  # 导入命令
 │   │   └── validate.rs # 验证命令
 │   ├── services/
+│   │   ├── ext/               # 第三方扩展模块 (2026-04-11 新增)
+│   │   │   ├── mod.rs         # 扩展模块声明
+│   │   │   ├── org_extension.rs       # OrgExtension trait 定义
+│   │   │   └── org_extension_manager.rs  # 扩展管理器
 │   │   ├── org_core.rs    # 核心业务逻辑
-│   │   └── org_service.rs # 服务层
+│   │   ├── org_service.rs # 服务层
+│   │   └── ext_org_service.rs # 扩展组织服务
 │   └── ...
+├── docs/
+│   └── third-party-extension-guide.md  # 第三方扩展实现指南
 ├── build.sh            # 构建脚本
 └── Cargo.toml
 ```

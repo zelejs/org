@@ -41,7 +41,7 @@ pub async fn handle_insert(
         level: None,
     };
 
-    match org_core::insert_child_org(&pool, parent_id, req, &ctx).await {
+    match org_core::insert_child_org(&pool, parent_id, req, &ctx, None).await {
         Ok(new_id) => {
             println!("{}", green.apply_to("✓ Child organization created successfully!"));
             println!("  New ID: {}", new_id);

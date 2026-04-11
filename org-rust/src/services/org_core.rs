@@ -6,7 +6,7 @@ use crate::models::{
     error::{AppError, AppResult},
     org::{SysOrg, SysOrgTreeItem, SysOrgTenantTreeItem, CreateOrgRequest},
 };
-use crate::services::RequestContext;
+use crate::services::{RequestContext, ext::OrgExtensionManager};
 
 const ORG_TYPE_TENANT: i32 = 1;
 const SYS_ORG_ID: i64 = 1;
@@ -138,6 +138,7 @@ pub async fn insert_child_org(
     parent_id: i64,
     req: CreateOrgRequest,
     ctx: &RequestContext,
+    extension_manager: Option<&OrgExtensionManager>,
 ) -> AppResult<i64> {
     let parent = get_by_id(pool, parent_id)
         .await?
@@ -175,10 +176,10 @@ pub async fn insert_child_org(
     .await
     .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let org_code = req.org_code.unwrap_or_else(|| random_org_code());
+    let org_code = req.org_code.clone().unwrap_or_else(|| random_org_code());
     let org_type = req.org_type.unwrap_or(2);
-    let name = req.name;
-    let full_name = req.full_name.unwrap_or_else(|| name.clone());
+    let name = req.name.clone();
+    let full_name = req.full_name.as_ref().map(|s| s.as_str()).unwrap_or(&name);
 
     let new_id: i64 = sqlx::query_scalar(
         r#"
@@ -206,6 +207,36 @@ pub async fn insert_child_org(
     .await
     .map_err(|e| AppError::Internal(e.to_string()))?;
 
+    // ===== 新增：调用第三方扩展接口 =====
+    if let Some(manager) = extension_manager {
+        // 在事务中查询新创建的组织
+        let new_org: Option<SysOrg> = sqlx::query_as::<_, SysOrg>(
+            "SELECT * FROM t_sys_org WHERE id = $1 AND delete_flag = 0"
+        )
+        .bind(new_id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        if let Some(org) = new_org {
+            // 调用扩展接口获取 ext_org_id
+            if let Ok(Some(ext_org_id)) = manager.on_org_created(&org, &req, ctx).await {
+                // 在同一事务中插入扩展组织记录
+                sqlx::query(
+                    "INSERT INTO t_sys_org_ext (id, ext_org_id, ext_org_type, delete_flag, create_time, update_time)
+                     VALUES ($1, $2, $3, 0, NOW(), NOW())"
+                )
+                .bind(new_id)
+                .bind(ext_org_id)
+                .bind(org.org_type)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| AppError::Internal(e.to_string()))?;
+            }
+        }
+    }
+    // ===== 扩展接口调用结束 =====
+
     tx.commit()
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
@@ -218,6 +249,7 @@ pub async fn remove_org(
     pool: &PgPool,
     id: i64,
     force: bool,
+    extension_manager: Option<&OrgExtensionManager>,
 ) -> AppResult<i64> {
     let org = get_by_id(pool, id)
         .await?
@@ -251,6 +283,16 @@ pub async fn remove_org(
     if descendants > 1 && !force {
         return Err(AppError::BadRequest("Has child organizations, cannot delete. Use --force to cascade delete.".to_string()));
     }
+
+    // ===== 新增：调用第三方扩展删除接口 =====
+    if let Some(manager) = extension_manager {
+        manager.on_org_delete(&org, &RequestContext {
+            org_id: None,
+            tenant_org_id: None,
+            appid: org.appid.clone(),
+        }).await?;
+    }
+    // ===== 扩展删除接口调用结束 =====
 
     let mut tx = pool
         .begin()

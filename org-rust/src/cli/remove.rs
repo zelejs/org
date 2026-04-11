@@ -23,7 +23,7 @@ pub async fn handle_remove(
         println!();
     }
 
-    match org_core::remove_org(&pool, org_id, force).await {
+    match org_core::remove_org(&pool, org_id, force, None).await {
         Ok(removed_id) => {
             println!("{}", green.apply_to("✓ Organization removed successfully!"));
             println!("  Removed ID: {}", removed_id);

@@ -1,4 +1,5 @@
 use sqlx::{Postgres, PgPool, QueryBuilder};
+use std::sync::Arc;
 
 use crate::models::{
     error::{AppError, AppResult},
@@ -11,6 +12,7 @@ use crate::models::{
 use crate::services::{
     org_core,
     RequestContext,
+    ext::OrgExtensionManager,
 };
 
 const ORG_TYPE_TENANT: i32 = 1;
@@ -18,11 +20,21 @@ const ORG_TYPE_TENANT: i32 = 1;
 #[derive(Clone)]
 pub struct OrgService {
     pool: PgPool,
+    extension_manager: Option<Arc<OrgExtensionManager>>,
 }
 
 impl OrgService {
     pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+        Self {
+            pool,
+            extension_manager: None,
+        }
+    }
+
+    /// 设置扩展管理器
+    pub fn with_extension_manager(mut self, manager: Arc<OrgExtensionManager>) -> Self {
+        self.extension_manager = Some(manager);
+        self
     }
 
     /// Initialize root organization
@@ -50,11 +62,22 @@ impl OrgService {
         req: CreateOrgRequest,
         ctx: &RequestContext,
     ) -> AppResult<i64> {
-        org_core::insert_child_org(&self.pool, parent_id, req, ctx).await
+        org_core::insert_child_org(
+            &self.pool,
+            parent_id,
+            req,
+            ctx,
+            self.extension_manager.as_deref(),
+        ).await
     }
 
     pub async fn delete_node(&self, id: i64) -> AppResult<i64> {
-        org_core::remove_org(&self.pool, id, false).await
+        org_core::remove_org(
+            &self.pool,
+            id,
+            false,
+            self.extension_manager.as_deref(),
+        ).await
     }
 
     pub async fn update_node(&self, id: i64, req: UpdateOrgRequest) -> AppResult<i64> {
